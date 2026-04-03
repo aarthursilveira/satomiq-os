@@ -14,7 +14,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-satomiq}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-satomiq}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,7 +38,7 @@ services:
       PORT: 3001
       LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
-      - "3001:3001"
+      - "3002:3002"
     depends_on:
       postgres:
         condition: service_healthy
