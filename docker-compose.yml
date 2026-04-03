@@ -1,9 +1,7 @@
-version: "3.8"
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: satomiq-os-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-satomiq_os}
@@ -11,8 +9,6 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-satomiq}" ]
       interval: 10s
@@ -25,7 +21,6 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    container_name: satomiq-os-api
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
@@ -37,8 +32,6 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-https://os.satomiq.com}
       PORT: 3001
       LOG_LEVEL: ${LOG_LEVEL:-info}
-    ports:
-      - "3002:3002"
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,10 +47,7 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-https://api-os.satomiq.com}
         VITE_APP_NAME: ${VITE_APP_NAME:-SAtomiq-OS}
-    container_name: satomiq-os-web
     restart: unless-stopped
-    ports:
-      - "3000:80"
     depends_on:
       - api
     networks:

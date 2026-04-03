@@ -23,16 +23,15 @@ WORKDIR /app
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && adduser -S node -u 1001
+# The 'node' user already exists in node:20-alpine image
 
 # Copy built application from builder
-COPY --from=builder --chown=node:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=node:nodejs /app/apps/api/dist ./dist
-COPY --from=builder --chown=node:nodejs /app/apps/api/package.json ./package.json
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/apps/api/dist ./dist
+COPY --from=builder --chown=node:node /app/apps/api/package.json ./package.json
 
 # Copy Prisma schema and migrations
-COPY --from=builder --chown=node:nodejs /app/apps/api/src/database/prisma ./prisma
+COPY --from=builder --chown=node:node /app/apps/api/src/database/prisma ./prisma
 
 # Switch to non-root user
 USER node
