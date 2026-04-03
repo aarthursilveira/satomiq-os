@@ -1,0 +1,47 @@
+{
+  "name": "@satomiq/api",
+  "version": "1.0.0",
+  "description": "SAtomiq-OS Backend API",
+  "type": "module",
+  "main": "dist/server.js",
+  "prisma": {
+    "schema": "src/database/prisma/schema.prisma"
+  },
+  "scripts": {
+    "dev": "node --loader tsx src/server.ts",
+    "build": "tsc",
+    "start:prod": "node dist/server.js",
+    "type-check": "tsc --noEmit",
+    "db:generate": "prisma generate --schema src/database/prisma/schema.prisma",
+    "db:migrate": "prisma migrate deploy --schema src/database/prisma/schema.prisma",
+    "db:migrate:dev": "prisma migrate dev --schema src/database/prisma/schema.prisma",
+    "db:seed": "node --loader tsx src/database/prisma/seed.ts",
+    "db:studio": "prisma studio --schema src/database/prisma/schema.prisma",
+    "postinstall": "prisma generate --schema src/database/prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@satomiq/shared": "workspace:*",
+    "@prisma/client": "^5.8.0",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.1.2",
+    "pino": "^8.17.2",
+    "pino-http": "^8.6.1",
+    "pino-pretty": "^11.0.0",
+    "prisma": "^5.8.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^20.10.6",
+    "@types/pino-http": "^5.8.4",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

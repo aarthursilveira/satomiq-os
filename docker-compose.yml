@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: satomiq-os-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-satomiq_os}
+      POSTGRES_USER: ${DB_USER:-satomiq}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-satomiq}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - satomiq-network
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: satomiq-os-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${DB_USER:-satomiq}:${DB_PASSWORD:-changeme}@postgres:5432/${DB_NAME:-satomiq_os}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-15m}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://os.satomiq.com}
+      PORT: 3001
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "npx prisma migrate deploy --schema prisma/schema.prisma && npm run start:prod"
+    networks:
+      - satomiq-network
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api-os.satomiq.com}
+        VITE_APP_NAME: ${VITE_APP_NAME:-SAtomiq-OS}
+    container_name: satomiq-os-web
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - satomiq-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  satomiq-network:
+    driver: bridge

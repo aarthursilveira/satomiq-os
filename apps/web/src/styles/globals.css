@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === BASE RESET === */
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: #0A0A0B;
+    color: #EDEDEF;
+    font-family: "Inter Variable", "Inter", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #2A2A2F;
+    border-radius: 99px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3A3A40;
+  }
+
+  ::selection {
+    background: rgba(37, 99, 235, 0.3);
+    color: #EDEDEF;
+  }
+}
+
+/* === CUSTOM UTILITIES === */
+@layer utilities {
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      #1A1A1E 25%,
+      #222226 50%,
+      #1A1A1E 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  .gradient-accent {
+    background: linear-gradient(135deg, #2563EB 0%, #7C3AED 100%);
+  }
+
+  .gradient-surface {
+    background: linear-gradient(180deg, #111113 0%, #0A0A0B 100%);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #2563EB 0%, #7C3AED 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .border-accent-glow {
+    border-color: #2563EB;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+
+  .card {
+    @apply bg-bg-secondary border border-border-subtle rounded-lg shadow-card;
+  }
+
+  .card-elevated {
+    @apply bg-bg-elevated border border-border-default rounded-lg shadow-elevated;
+  }
+
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .fade-in {
+    animation: fadeIn 200ms ease;
+  }
+
+  .slide-up {
+    animation: slideUp 200ms ease;
+  }
+}
+
+/* === TIPPY/TOOLTIP OVERRIDE === */
+[data-tippy-content] {
+  cursor: default;
+}
+
+/* === REACT ROUTER TRANSITION === */
+.page-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 200ms ease, transform 200ms ease;
+}

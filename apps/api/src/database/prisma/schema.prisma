@@ -1,0 +1,352 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// === AUTENTICAÇÃO ===
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  passwordHash String
+  name      String
+  role      UserRole @default(ADMIN)
+  avatarUrl String?
+
+  notes      Note[]
+  activities Activity[]
+  tasks      Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+  VIEWER
+
+  @@map("user_roles")
+}
+
+// === CLIENTES / MARCAS ===
+model Client {
+  id           String       @id @default(cuid())
+  name         String
+  type         ClientType
+  slug         String       @unique
+  avatarUrl    String?
+  description  String?
+  status       ClientStatus @default(ACTIVE)
+
+  email        String?
+  phone        String?
+  whatsapp     String?
+  instagram    String?
+  website      String?
+  address      String?
+
+  contractValue Decimal?     @db.Decimal(10, 2)
+  contractStart DateTime?
+  contractEnd   DateTime?
+  paymentDay    Int?
+
+  tags         String[]
+  customFields Json?
+
+  contacts       Contact[]
+  projects       Project[]
+  notes          Note[]
+  activities     Activity[]
+  tasks          Task[]
+  pipelineStages PipelineEntry[]
+  contentItems   ContentItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([status])
+  @@map("clients")
+}
+
+enum ClientType {
+  PERSON
+  BRAND
+  COMPANY
+
+  @@map("client_types")
+}
+
+enum ClientStatus {
+  LEAD
+  PROSPECT
+  ACTIVE
+  PAUSED
+  CHURNED
+  ARCHIVED
+
+  @@map("client_statuses")
+}
+
+// === CONTATOS ===
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  role      String?
+  email     String?
+  phone     String?
+  whatsapp  String?
+  isPrimary Boolean  @default(false)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@map("contacts")
+}
+
+// === PROJETOS ===
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(PLANNING)
+  priority    Priority      @default(MEDIUM)
+  startDate   DateTime?
+  dueDate     DateTime?
+  completedAt DateTime?
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  tasks Task[]
+  notes Note[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+
+  @@map("project_statuses")
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+
+  @@map("priorities")
+}
+
+// === TAREFAS ===
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  priority    Priority   @default(MEDIUM)
+  dueDate     DateTime?
+  completedAt DateTime?
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  assigneeId String?
+  assignee   User?   @relation(fields: [assigneeId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([clientId])
+  @@index([assigneeId])
+  @@index([status])
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  CANCELLED
+
+  @@map("task_statuses")
+}
+
+// === NOTAS ===
+model Note {
+  id      String   @id @default(cuid())
+  content String   @db.Text
+  isPinned Boolean @default(false)
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([projectId])
+  @@index([authorId])
+  @@map("notes")
+}
+
+// === TIMELINE DE ATIVIDADES ===
+model Activity {
+  id          String       @id @default(cuid())
+  type        ActivityType
+  title       String
+  description String?
+  metadata    Json?
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("activities")
+}
+
+enum ActivityType {
+  NOTE_ADDED
+  STATUS_CHANGED
+  MEETING
+  CALL
+  EMAIL_SENT
+  WHATSAPP
+  PAYMENT_RECEIVED
+  CONTRACT_SIGNED
+  TASK_COMPLETED
+  PROJECT_CREATED
+  CUSTOM
+
+  @@map("activity_types")
+}
+
+// === PIPELINE / FUNIL ===
+model Pipeline {
+  id        String   @id @default(cuid())
+  name      String
+  isDefault Boolean  @default(false)
+
+  stages PipelineStage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("pipelines")
+}
+
+model PipelineStage {
+  id        String  @id @default(cuid())
+  name      String
+  color     String
+  order     Int
+  pipelineId String
+  pipeline  Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  entries PipelineEntry[]
+
+  @@index([pipelineId])
+  @@map("pipeline_stages")
+}
+
+model PipelineEntry {
+  id       String   @id @default(cuid())
+  value    Decimal? @db.Decimal(10, 2)
+  notes    String?
+  enteredAt DateTime @default(now())
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  stageId String
+  stage   PipelineStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([stageId])
+  @@map("pipeline_entries")
+}
+
+// === CALENDÁRIO DE CONTEÚDO ===
+model ContentItem {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  type        ContentType
+  platform    String[]
+  status      ContentStatus @default(IDEA)
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  mediaUrls   String[]
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@map("content_items")
+}
+
+enum ContentType {
+  POST
+  STORY
+  REEL
+  CAROUSEL
+  VIDEO
+  BLOG
+  EMAIL_CAMPAIGN
+
+  @@map("content_types")
+}
+
+enum ContentStatus {
+  IDEA
+  DRAFT
+  IN_REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+
+  @@map("content_statuses")
+}
