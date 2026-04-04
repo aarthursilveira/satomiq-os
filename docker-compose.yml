@@ -4,13 +4,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME:-satomiq_os}
-      POSTGRES_USER: ${DB_USER:-satomiq}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: ${DB_NAME:?Variável DB_NAME é obrigatória}
+      POSTGRES_USER: ${DB_USER:?Variável DB_USER é obrigatória}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Variável DB_PASSWORD é obrigatória}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-satomiq}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
-      DATABASE_URL: postgresql://${DB_USER:-satomiq}:${DB_PASSWORD:-changeme}@postgres:5432/${DB_NAME:-satomiq_os}
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-15m}
