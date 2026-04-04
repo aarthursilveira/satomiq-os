@@ -85,15 +85,17 @@ export function createApp(): Express {
       res: Response,
       _next: NextFunction,
     ) => {
-      if (error instanceof AppError) {
+      if (error instanceof AppError || error.name === "AppError") {
+        const appError = error as AppError;
         logger.error(
-          { statusCode: error.statusCode, code: error.code },
-          error.message,
+          { statusCode: appError.statusCode, code: appError.code },
+          appError.message,
         );
-        sendError(res, error.statusCode, error.message);
+        sendError(res, appError.statusCode, appError.message);
         return;
       }
 
+      console.error("🔴 [UNHANDLED ERROR EXCEPTION]:", error);
       logger.error(error, "Unhandled error");
       sendError(res, 500, "Internal server error");
     },
