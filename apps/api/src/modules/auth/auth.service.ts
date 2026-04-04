@@ -86,7 +86,7 @@ export async function registerUser(input: RegisterInput): Promise<AuthResult> {
   };
 
   return {
-    user: { ...user, updatedAt: new Date() },
+    user: { ...user, role: user.role as UserRole },
     tokens,
   };
 }
@@ -129,7 +129,6 @@ export async function loginUser(input: LoginInput): Promise<AuthResult> {
       role: user.role as UserRole,
       avatarUrl: user.avatarUrl,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
     },
     tokens,
   };

@@ -3,7 +3,7 @@ import { config } from "@/config/env.js";
 
 const isDev = config.NODE_ENV === "development";
 
-const logger = pino({
+const logger = (pino as any)({
   level: config.LOG_LEVEL,
   ...(isDev
     ? {

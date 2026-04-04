@@ -172,7 +172,6 @@ export function generateColorFromName(name: string): string {
     hash = hash & hash;
   }
 
-  const hue = Math.abs(hash) % 360;
   const colors = [
     "#FF6B6B",
     "#4ECDC4",

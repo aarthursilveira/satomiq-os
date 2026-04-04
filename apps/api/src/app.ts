@@ -46,7 +46,7 @@ export function createApp(): Express {
 
   // === LOGGING MIDDLEWARE ===
   if (config.NODE_ENV !== "test") {
-    app.use(pinoHttp({ logger }));
+    app.use((pinoHttp as any)({ logger }));
   }
 
   // === BODY PARSING ===

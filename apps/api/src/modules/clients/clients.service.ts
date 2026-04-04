@@ -150,7 +150,7 @@ export async function createClient(input: CreateClientInput) {
       contractEnd: input.contractEnd,
       paymentDay: input.paymentDay,
       tags: input.tags ?? [],
-      customFields: input.customFields,
+      customFields: input.customFields as any,
     },
   });
 
@@ -193,7 +193,7 @@ export async function updateClient(id: string, input: UpdateClientInput) {
       ...(input.contractEnd !== undefined && { contractEnd: input.contractEnd }),
       ...(input.paymentDay !== undefined && { paymentDay: input.paymentDay }),
       ...(input.tags !== undefined && { tags: input.tags }),
-      ...(input.customFields !== undefined && { customFields: input.customFields }),
+      ...(input.customFields !== undefined && { customFields: input.customFields as any }),
     },
   });
 
