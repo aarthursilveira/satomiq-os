@@ -1,5 +1,8 @@
 # === BUILD STAGE ===
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
+
+# Ensure OpenSSL is present for Prisma binary generation
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -28,12 +31,12 @@ WORKDIR /app
 RUN npm prune --omit=dev
 
 # === RUNTIME STAGE ===
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install dumb-init for signal handling and openssl for Prisma native engine
+RUN apt-get update && apt-get install -y dumb-init openssl && rm -rf /var/lib/apt/lists/*
 
 # Copy root configurations and pruned node_modules (preserves workspace symlinks)
 COPY --from=builder --chown=node:node /app/package*.json ./
