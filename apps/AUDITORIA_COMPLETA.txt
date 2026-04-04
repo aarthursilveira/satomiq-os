@@ -1,0 +1,571 @@
+================================================================================
+  AUDITORIA COMPLETA DO SISTEMA — SAtomiq-OS
+  Data: 2026-04-03
+  Auditor: Antigravity AI (Claude Opus 4.6)
+  Escopo: Full-stack (Frontend Web + Backend API + Infraestrutura Docker)
+  Versão analisada: branch main (commit 5cf42cc e subsequentes)
+================================================================================
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  SEÇÃO 1 — DIAGNÓSTICO: PÁGINA "TAREFAS" INACESSÍVEL                      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE: ██████████ CRÍTICA (funcionalidade inteira quebrada)
+STATUS: BUG CONFIRMADO — causa raiz identificada
+
+CAUSA RAIZ:
+  A rota "/tasks" NÃO EXISTE no router da aplicação (App.tsx).
+  O Sidebar.tsx registra o link { label: "Tarefas", to: "/tasks" },
+  mas App.tsx contém apenas as seguintes rotas:
+
+    /dashboard     → DashboardPage
+    /crm           → ClientListPage
+    /crm/:id       → ClientProfilePage
+    /crm/pipeline  → PipelinePage
+    *              → Navigate to /dashboard (catch-all)
+
+  Resultado: Ao clicar em "Tarefas" no menu, o usuário é REDIRECIONADO
+  silenciosamente para /dashboard pelo catch-all (linha 67 de App.tsx).
+  Não há error, não há aviso — simplesmente parece que o botão não funciona.
+
+IMPACTO:
+  - O item "Tarefas" no Sidebar funciona como um botão morto
+  - O CommandPalette (⌘K) também navega para /tasks sem resultado
+  - O Topbar.tsx registra o título "Tarefas" para /tasks mas nunca é atingido
+  - O backend (/api/tasks) está COMPLETO e funcional (CRUD inteiro pronto)
+  - O hook useClientTasks() funciona para tarefas dentro do perfil de cliente
+  - NÃO EXISTE uma página TasksPage.tsx (não foi criada)
+
+ARQUIVOS AFETADOS:
+  [FALTANDO]  apps/web/src/pages/Tasks/TasksPage.tsx  — PRECISA SER CRIADO
+  [BUG]       apps/web/src/App.tsx:67                  — Rota /tasks inexistente
+  [OK]        apps/web/src/layouts/Sidebar.tsx:29       — Link correto (/tasks)
+  [OK]        apps/web/src/layouts/Topbar.tsx:11        — Título registrado
+  [OK]        apps/api/src/modules/tasks/*              — Backend 100% pronto
+  [FALTANDO]  apps/web/src/services/tasks.service.ts    — Service dedicado inexiste
+  [FALTANDO]  apps/web/src/hooks/useTasks.ts            — Hook dedicado inexiste
+
+CORREÇÃO NECESSÁRIA:
+  1. Criar TasksPage.tsx com listagem global de tarefas (todos os clientes)
+  2. Criar tasks.service.ts no frontend (chamando GET /api/tasks)
+  3. Criar useTasks.ts hook para gerenciar estado
+  4. Adicionar rota lazy em App.tsx: <Route path="/tasks" element={<TasksPage />} />
+
+OBSERVAÇÃO ADICIONAL:
+  O mesmo problema ocorre com a rota "/settings" (Configurações).
+  O Sidebar e o CommandPalette possuem links para /settings, mas:
+  - Não existe SettingsPage.tsx
+  - Não existe rota /settings no App.tsx
+  - O catch-all redireciona silenciosamente para /dashboard
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  SEÇÃO 2 — BUGS CRÍTICOS CONFIRMADOS                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+─────────────────────────────────────────────────────────────────────────────
+BUG #01 — instanceof AppError falha no Error Handler global
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  ALTA
+ARQUIVO:    apps/api/src/app.ts (linhas 88-100)
+STATUS:     PARCIALMENTE CORRIGIDO (workaround aplicado, não é fix definitivo)
+
+DESCRIÇÃO:
+  Em ESM (módulos ES nativos do Node 20), a checagem `instanceof` para
+  classes lançadas de módulos diferentes pode falhar silenciosamente quando
+  os protótipos não compartilham a mesma referência de cadeia.
+  
+  Isso fazia com que erros intencionais como "credenciais inválidas" (401)
+  fossem engolidos e retornados como "500 Internal Server Error".
+
+WORKAROUND APLICADO:
+  Adicionamos `error.name === "AppError"` como checagem alternativa.
+  Isso funciona, mas é frágil — se alguém renomear a classe, quebra.
+
+CORREÇÃO DEFINITIVA RECOMENDADA:
+  Usar um Symbol.for('AppError') ou um campo discriminante estático:
+    static readonly brand = 'AppError' as const;
+  E checar via: if ('brand' in error && error.brand === 'AppError')
+
+
+─────────────────────────────────────────────────────────────────────────────
+BUG #02 — Múltiplas instâncias de PrismaClient (connection leak)
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  ALTA
+ARQUIVOS:   
+  - apps/api/src/modules/auth/auth.service.ts:9
+  - apps/api/src/modules/tasks/tasks.service.ts:6
+  - apps/api/src/modules/dashboard/dashboard.service.ts:3
+  - apps/api/src/modules/clients/clients.service.ts (mesma instância local)
+  - apps/api/src/database/prisma/seed.ts:4
+  (e possivelmente todos os demais services)
+
+DESCRIÇÃO:
+  Cada arquivo de service cria sua própria instância:
+    const prisma = new PrismaClient();
+
+  Isso gera N conexões separadas ao PostgreSQL, cada uma com seu próprio
+  pool interno. Em produção, isso pode:
+  - Esgotar os limites de conexão do PostgreSQL
+  - Gerar warnings de "too many Prisma Clients" nos logs
+  - Dificultar transações que precisem de consistência cross-service
+
+CORREÇÃO RECOMENDADA:
+  Criar um singleton centralizado:
+    // apps/api/src/shared/database/prisma.ts
+    import { PrismaClient } from "@prisma/client";
+    export const prisma = new PrismaClient();
+
+  E importar de lá em todos os services.
+
+
+─────────────────────────────────────────────────────────────────────────────
+BUG #03 — Rota /crm/pipeline conflita com /crm/:id
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  MÉDIA-ALTA
+ARQUIVO:    apps/web/src/App.tsx (linhas 43-66)
+
+DESCRIÇÃO:
+  As rotas estão definidas nesta ordem:
+    /crm          → ClientListPage
+    /crm/:id      → ClientProfilePage   (parâmetro dinâmico)
+    /crm/pipeline → PipelinePage         (rota fixa)
+
+  O React Router v6 faz matching por especificidade e geralmente
+  resolve corretamente, MAS a ordem declarativa pode causar ambiguidade
+  em edge cases, especialmente se um cliente tiver id="pipeline".
+
+CORREÇÃO RECOMENDADA:
+  Declarar /crm/pipeline ANTES de /crm/:id, ou melhor ainda,
+  renomear a rota para /pipeline (sem prefixo /crm).
+
+
+─────────────────────────────────────────────────────────────────────────────
+BUG #04 — Botão "Editar" no perfil do cliente não faz nada
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  MÉDIA
+ARQUIVO:    apps/web/src/pages/CRM/ClientProfilePage.tsx:156-158
+
+DESCRIÇÃO:
+  O botão "Editar" é renderizado sem nenhum onClick handler:
+    <Button variant="ghost" size="sm" leftIcon={<Edit />}>Editar</Button>
+
+  Não existe modal de edição, nem formulário, nem rota de edição.
+  O hook useUpdateClient existe no código, mas não é utilizado.
+
+IMPACTO:
+  Funcionalidade de edição de cliente é completamente não-funcional.
+
+
+─────────────────────────────────────────────────────────────────────────────
+BUG #05 — Botão "Novo Conteúdo" no ContentTab não faz nada
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  MÉDIA
+ARQUIVO:    apps/web/src/pages/CRM/components/ContentTab.tsx:108-110
+
+DESCRIÇÃO:
+  Mesmo problema do botão Editar — é renderizado mas sem handler:
+    <Button variant="primary" size="sm" leftIcon={<Plus />}>Novo Conteúdo</Button>
+
+
+─────────────────────────────────────────────────────────────────────────────
+BUG #06 — Botão "Adicionar Contato" no EmptyState não faz nada
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  MÉDIA
+ARQUIVO:    apps/web/src/pages/CRM/components/ContactsTab.tsx:48-50
+
+DESCRIÇÃO:
+  O botão "Adicionar Contato" no EmptyState não tem onClick.
+  O service createContact() existe mas não é conectado a nenhum UI.
+
+
+─────────────────────────────────────────────────────────────────────────────
+BUG #07 — Seed usa IDs fixos que podem colidir
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  BAIXA-MÉDIA
+ARQUIVO:    apps/api/src/database/prisma/seed.ts
+
+DESCRIÇÃO:
+  Os contatos, projetos, tarefas, notas e entries usam IDs fixos strings:
+    id: "contact_du_primary"
+    id: "task_1"
+    id: "note_1"
+    id: "entry_du"
+  
+  Enquanto o schema Prisma define @id @default(cuid()).
+  Se o seed rodar duas vezes com upsert, funciona. Mas se outro código
+  criar registros com esses mesmos IDs, haverá colisão.
+
+  Além disso, IDs como "task_1" não seguem o formato CUID esperado por
+  possíveis validações de ID no frontend ou em integrações.
+
+
+─────────────────────────────────────────────────────────────────────────────
+BUG #08 — accessToken armazenado no localStorage (via Zustand persist)
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  SEGURANÇA — MÉDIA
+ARQUIVO:    apps/web/src/stores/auth.store.ts:48-54
+
+DESCRIÇÃO:
+  O auth store persiste o accessToken e refreshToken diretamente no
+  localStorage do navegador via `persist({ name: "satomiq-auth" })`.
+  
+  Isso os torna acessíveis a qualquer JavaScript rodando na mesma
+  origin, incluindo scripts de terceiros ou extensões maliciosas.
+  
+  Em caso de XSS, tokens podem ser exfiltrados silenciosamente.
+
+RECOMENDAÇÃO:
+  - Mover refreshToken para httpOnly cookies (server-set)
+  - Manter accessToken apenas em memória (sem persist)
+  - Ou pelo menos, não persistir o refreshToken e aceitar re-login
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  SEÇÃO 3 — INCONSISTÊNCIAS ARQUITETURAIS                                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+─────────────────────────────────────────────────────────────────────────────
+INC #01 — Tipagem fraca generalizada no frontend (unknown abuse)
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  MÉDIA
+ARQUIVOS:   Todos os services e hooks em apps/web/src/services/*.ts
+
+DESCRIÇÃO:
+  Praticamente todos os services usam ApiResponse<unknown> ou
+  ApiResponse<unknown[]> para tipar respostas da API:
+    const { data } = await api.get<ApiResponse<unknown[]>>(`/clients?${params}`);
+
+  Em seguida, nos componentes, fazem cast com `as`:
+    const clients = (data?.data as ClientRecord[] | undefined) ?? [];
+
+  Isso elimina toda a garantia de tipo do TypeScript. Se a API mudar
+  a forma de um campo, o frontend não acusa nos tipos — simplesmente
+  quebra em runtime.
+
+CORREÇÃO RECOMENDADA:
+  Criar interfaces de resposta compartilhadas no packages/shared e
+  usá-las tanto no backend quanto no frontend.
+
+
+─────────────────────────────────────────────────────────────────────────────
+INC #02 — auth.service.ts usa axios puro, api.ts usa instância configurada
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  BAIXA-MÉDIA
+ARQUIVOS:   
+  - apps/web/src/services/auth.service.ts  (usa `import axios from "axios"`)
+  - apps/web/src/services/api.ts           (usa instância axios com interceptors)
+
+DESCRIÇÃO:
+  O auth.service.ts NÃO usa a instância `api` (que possui interceptors de
+  token e refresh automático). Em vez disso, importa axios diretamente.
+  
+  Para login é correto (não precisa de token), mas cria inconsistência
+  na base de código. Caso futuramente alguém adicione endpoints de auth
+  que necessitem de autenticação (ex: /auth/change-password), eles podem
+  ser escritos com o axios puro e falhar silenciosamente.
+
+
+─────────────────────────────────────────────────────────────────────────────
+INC #03 — Refresh token interceptor pode causar loop infinito
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  MÉDIA
+ARQUIVO:    apps/web/src/services/api.ts:22-56
+
+DESCRIÇÃO:
+  O interceptor de resposta captura erros 401 e tenta refresh.
+  Se o próprio refresh retornar 401, ele chama logout() corretamente.
+  
+  Porém, se o refresh retornar um outro erro (ex: 500, timeout),
+  o catch genérico faz logout() — o que pode ser agressivo demais.
+  
+  Adicionalmente, não há flag de "isRefreshing" para prevenir que
+  múltiplas requisições simultâneas disparem N tentativas de refresh
+  concorrentes.
+
+CORREÇÃO RECOMENDADA:
+  Implementar um mutex de refresh:
+    let isRefreshing = false;
+    let pendingRequests: Array<(token: string) => void> = [];
+
+
+─────────────────────────────────────────────────────────────────────────────
+INC #04 — Senha do admin exposta em código-fonte público
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  SEGURANÇA — ALTA
+ARQUIVO:    apps/api/src/database/prisma/seed.ts:15
+
+DESCRIÇÃO:
+  A senha do admin está hardcoded no seed.ts e commitada no repositório
+  público (GitHub). Qualquer pessoa pode ler o repositório e descobrir
+  a senha utilizada em produção.
+
+  passwordHash: await bcrypt.hash("Arthuros@18", 12),
+
+RECOMENDAÇÃO:
+  - Trocar a senha imediatamente em produção
+  - Mover a senha do seed para variável de ambiente:
+      bcrypt.hash(process.env.ADMIN_SEED_PASSWORD ?? "changeMe!", 12)
+  - Se o repo é público, considerar torná-lo privado
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  SEÇÃO 4 — ANÁLISE DE RESPONSIVIDADE MOBILE                                ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+─────────────────────────────────────────────────────────────────────────────
+MOB #01 — Sidebar PERMANENTE sem toggle mobile — bloqueia toda a tela
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  ██████████ CRÍTICA
+
+ARQUIVO:    apps/web/src/layouts/AppLayout.tsx + Sidebar.tsx
+
+DESCRIÇÃO:
+  O AppLayout usa `flex h-screen` com a Sidebar como flex child direto.
+  A sidebar tem largura mínima de 64px (colapsada) ou 260px (aberta).
+  
+  Em telas mobile (<640px), a sidebar AINDA OCUPA ESPAÇO horizontal,
+  empurrando o conteúdo principal para uma área minúscula.
+  
+  NÃO EXISTE:
+  - Nenhum media query para esconder a sidebar em mobile
+  - Nenhum botão "hamburger" visível apenas em mobile
+  - Nenhum comportamento de overlay/drawer para mobile
+  - Nenhum mecanismo de swipe para abrir/fechar
+
+  O botão de toggle (ChevronLeft) existe na sidebar expandida, mas
+  ao colapsar, não há forma de reexpandir em mobile (o botão Menu
+  no Topbar aparece somente quando sidebarCollapsed === true,
+  e em telas estreitas ocupa espaço precioso).
+
+IMPACTO:
+  Em um celular, ~30-40% da largura é consumida pela sidebar, tornando
+  o conteúdo ilegível e inutilizável. Esse é provavelmente o maior
+  problema de UX mobile do sistema inteiro.
+
+CORREÇÃO RECOMENDADA:
+  - Detectar tamanhos de tela < 768px via hook useMediaQuery
+  - Em mobile: sidebar como overlay/drawer absoluto com backdrop
+  - Botão hamburger fixo no Topbar para abrir/fechar
+  - Fechar sidebar ao clicar em qualquer NavItem (em mobile)
+  - Transição suave com Framer Motion (já está importado)
+
+
+─────────────────────────────────────────────────────────────────────────────
+MOB #02 — Dashboard KPI Grid não colapsa corretamente
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  ALTA
+ARQUIVO:    apps/web/src/pages/Dashboard/DashboardPage.tsx:225
+
+DESCRIÇÃO:
+  O grid de KPIs usa `grid-cols-2 lg:grid-cols-3`.
+  Em telas muito estreitas (~320px), dois KPI Cards lado a lado
+  ficam comprimidos demais, com textos truncados e valores cortados.
+  
+  Não há breakpoint `grid-cols-1` para telas extra-pequenas (xs).
+
+CORREÇÃO:
+  Mudar para: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`
+
+
+─────────────────────────────────────────────────────────────────────────────
+MOB #03 — Pipeline Kanban board sem scroll horizontal indicado
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  ALTA
+ARQUIVO:    apps/web/src/pages/CRM/PipelinePage.tsx:256
+
+DESCRIÇÃO:
+  O board Kanban usa `flex gap-4 overflow-x-auto`.
+  Em mobile, 4 colunas de 288px (w-72) totalizam ~1200px.
+  O scroll horizontal funciona tecnicamente, mas:
+  
+  - Não há indicador visual de que existe conteúdo à direita
+  - Não há scroll snap para parar nas colunas
+  - O drag-and-drop entre colunas fica praticamente impossível em touch
+  - As colunas são muito largas para a tela narrow
+
+CORREÇÃO:
+  - Adicionar scroll-snap-type: x mandatory
+  - Reduzir largura das colunas em mobile (w-60 ou w-56)
+  - Considerar view alternativa para mobile (lista vertical por stage)
+
+
+─────────────────────────────────────────────────────────────────────────────
+MOB #04 — Filtros da lista de clientes empilham mal em mobile
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  MÉDIA
+ARQUIVO:    apps/web/src/pages/CRM/ClientListPage.tsx:207-262
+
+DESCRIÇÃO:
+  A barra de filtros usa `flex flex-wrap items-center gap-3`.
+  Em mobile, os elementos se empilham mas o Select "w-40" e "w-36"
+  não expandem para 100%, ficando desproporcionais na tela.
+  O toggle grid/list fica numa posição estranha com ml-auto.
+
+CORREÇÃO:
+  - Selects devem usar `w-full sm:w-40` para expandir em mobile
+  - Toggle deve ir para uma nova linha em mobile
+  - Considerar layout vertical para filtros em telas < 640px
+
+
+─────────────────────────────────────────────────────────────────────────────
+MOB #05 — Perfil de cliente: layout side-by-side quebra em mobile
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  MÉDIA
+ARQUIVO:    apps/web/src/pages/CRM/ClientProfilePage.tsx:144
+
+DESCRIÇÃO:
+  O layout usa `flex flex-col lg:flex-row gap-5`.
+  Em mobile, o aside (w-full lg:w-72) e o conteúdo principal ficam
+  empilhados verticalmente — isso FUNCIONA, mas:
+  
+  - As tabs (6 botões) ficam apertadas e sem indicação de scroll
+  - O aside ocupa tela inteira antes do conteúdo real
+  - Não há "sticky" no card de informações ao scrollar
+
+  A experiência é funcional mas degradada.
+
+
+─────────────────────────────────────────────────────────────────────────────
+MOB #06 — TaskRow (dentro de ClientProfile) tem muitas colunas
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  MÉDIA
+ARQUIVO:    apps/web/src/pages/CRM/components/TasksTab.tsx:35-88
+
+DESCRIÇÃO:
+  Cada TaskRow renderiza horizontalmente:
+    checkbox + título + prioridade + status badge + data + avatar
+  
+  Em mobile, todos esses elementos ficam na mesma linha, causando:
+  - Título trucado agressivamente
+  - Status badge e prioridade colados sem espaçamento
+  - Avatar talvez invisível
+
+  Não há breakpoints para mudar o layout para vertical em mobile.
+
+
+─────────────────────────────────────────────────────────────────────────────
+MOB #07 — Modal de criar cliente: inputs de 2 colunas em mobile
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  BAIXA-MÉDIA
+ARQUIVO:    apps/web/src/pages/CRM/components/CreateClientForm.tsx:57-92
+
+DESCRIÇÃO:
+  Os formulários usam `grid grid-cols-2 gap-3` sem breakpoint.
+  Em mobile, 2 inputs lado a lado ficam estreitos demais.
+  
+CORREÇÃO:
+  Mudar para `grid grid-cols-1 sm:grid-cols-2 gap-3`
+
+
+─────────────────────────────────────────────────────────────────────────────
+MOB #08 — Topbar não tem viewport meta otimizado  
+─────────────────────────────────────────────────────────────────────────────
+GRAVIDADE:  BAIXA
+ARQUIVO:    Verificar index.html quanto ao meta viewport
+
+DESCRIÇÃO:
+  O botão de busca (⌘K) usa `hidden sm:flex`, então simplesmente
+  desaparece em mobile sem alternativa. Não existe forma de buscar
+  conteúdo via mobile na interface.
+
+CORREÇÃO:
+  Manter um ícone de busca solo (sem texto) visível em mobile.
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  SEÇÃO 5 — FUNCIONALIDADES FANTASMA (UI existente, lógica ausente)         ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────┬──────────────────────────────┬──────────────────┐
+│ FUNCIONALIDADE          │ ONDE APARECE NA UI           │ STATUS BACKEND   │
+├─────────────────────────┼──────────────────────────────┼──────────────────┤
+│ Página de Tarefas       │ Sidebar, CommandPalette      │ API 100% pronta  │
+│ Página de Configurações │ Sidebar, CommandPalette      │ Não existe       │
+│ Editar Cliente          │ Botão no ClientProfilePage   │ API PATCH pronta │
+│ Novo Conteúdo (tab)     │ Botão no ContentTab          │ API POST pronta  │
+│ Adicionar Contato       │ EmptyState no ContactsTab    │ API POST pronta  │
+│ Notificações (sino)     │ Topbar, ícone Bell           │ Não existe       │
+│ Registro de usuário     │ API pronta (POST /register)  │ UI não existe    │
+│ Delete de cliente       │ Hook useDeleteClient existe   │ API DELETE pronta│
+└─────────────────────────┴──────────────────────────────┴──────────────────┘
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  SEÇÃO 6 — PROBLEMAS MENORES E RECOMENDAÇÕES                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+1. [CSS] Tailwind custom spacing sobrescreve as unidades padrão do Tailwind.
+   O spacing no tailwind.config.ts usa valores absolutos (1: "4px", 2: "8px")
+   em vez de múltiplos de rem. Isso pode gerar inconsistências se alguém
+   usar classes como p-1 esperando 0.25rem mas receber 4px.
+
+2. [ACESSIBILIDADE] Nenhum elemento interativo possui aria-label ou
+   role="button". Todas as <button> sem texto acessível (ícone-only)
+   são inacessíveis para screen readers.
+
+3. [PERFORMANCE] O dashboard faz 18 queries no banco dentro de uma
+   $transaction. Isso é eficiente em termos de consistência, mas pode
+   ser lento à medida que as tabelas crescerem. Considerar materializar
+   contadores ou usar views.
+
+4. [FONT] O tailwind.config.ts referencia "Satoshi" e "General Sans" no
+   fontFamily.display, mas não há importação dessas fontes no index.html
+   ou no CSS. Essas fontes nunca carregam — o fallback para Inter é usado.
+
+5. [SEO] As rotas são renderizadas client-side (SPA com React Router).
+   Não há server-side rendering, meta tags dinâmicas, ou sitemap.
+   Para um sistema interno isso é aceitável, mas SE for exposto
+   publicamente, SEO será zero.
+
+6. [DOCKER] O web Dockerfile (se existir) precisa ser verificado
+   separadamente. O docker-compose.yml referencia apps/web/Dockerfile.
+
+7. [ENV] A variável CORS_ORIGIN aceita múltiplos origins separados por
+   vírgula (apps/api/src/app.ts:29), mas o valor default é uma string única.
+   Se configurado incorretamente, CORS blocking pode ocorrer silenciosamente.
+
+8. [SEGURANÇA] Não há rate limiting por IP no nível de container/reverse proxy.
+   O rate limiter do Express usa memória in-process, que reseta a cada restart.
+   Em produção, usar Redis ou similar para rate limiting persistente.
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  SEÇÃO 7 — RESUMO DE PRIORIDADES                                           ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+  PRIORIDADE 1 (URGENTE — impacto direto no uso):
+    • Criar TasksPage.tsx e rota /tasks             [BUG PRINCIPAL]
+    • Corrigir Sidebar mobile (overlay/drawer)      [MOB #01]
+    • Mover senha do admin para env variable        [INC #04]
+
+  PRIORIDADE 2 (ALTA — afeta qualidade e estabilidade):
+    • Centralizar PrismaClient em singleton         [BUG #02]
+    • Corrigir instanceof AppError definitivamente  [BUG #01]
+    • Implementar mutex no refresh token            [INC #03]
+    • Grids mobile (KPIs, formulários)              [MOB #02, #07]
+
+  PRIORIDADE 3 (MÉDIA — melhorias de UX):
+    • Conectar botões mortos (Editar, Novo Conteúdo) [BUG #04-06]
+    • Criar SettingsPage placeholder                [FUNCIONALIDADE]
+    • Melhorar Pipeline mobile                      [MOB #03]
+    • Tipar responses corretamente                  [INC #01]
+
+  PRIORIDADE 4 (BAIXA — polish):
+    • Acessibilidade (aria-labels)
+    • Font loading (Satoshi, General Sans)
+    • Busca mobile no Topbar
+    • Materializar contadores no dashboard
+
+
+================================================================================
+  FIM DA AUDITORIA
+  Total de bugs identificados: 8
+  Total de inconsistências arquitecturais: 4
+  Total de problemas mobile: 8
+  Total de funcionalidades fantasma: 8
+  
+  Este documento serve como base para priorização de sprints de correção.
+  Nenhuma alteração de código foi feita — apenas documentação diagnóstica.
+================================================================================

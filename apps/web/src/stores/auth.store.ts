@@ -46,10 +46,11 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "satomiq-auth",
+      // Tokens não são persistidos no localStorage por segurança (XSS).
+      // Apenas user e isAuthenticated são mantidos — ao recarregar a página,
+      // o refreshToken precisará ser re-obtido via fluxo de login.
       partialize: (state) => ({
         user: state.user,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
     },

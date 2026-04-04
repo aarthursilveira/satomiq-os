@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Image, Plus, Calendar, Instagram, Globe } from "lucide-react";
 import { useClientContent } from "@/hooks/useClients.js";
+import { AddContentModal } from "@/pages/CRM/components/AddContentModal.js";
 import { StatusBadge } from "@/components/ui/Badge.js";
 import { Button } from "@/components/ui/Button.js";
 import { Select } from "@/components/ui/Select.js";
@@ -80,6 +81,7 @@ function ContentCard({ item }: { item: ContentData }): JSX.Element {
 
 export function ContentTab({ clientId }: { clientId: string }): JSX.Element {
   const [statusFilter, setStatusFilter] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
   const { data, isLoading } = useClientContent(clientId);
 
   const allItems = (data?.data as ContentData[] | undefined) ?? [];
@@ -97,6 +99,7 @@ export function ContentTab({ clientId }: { clientId: string }): JSX.Element {
 
   return (
     <div className="flex flex-col gap-4">
+      <AddContentModal open={addOpen} onClose={() => setAddOpen(false)} clientId={clientId} />
       <div className="flex items-center justify-between">
         <Select
           options={STATUS_FILTER_OPTIONS}
@@ -105,7 +108,7 @@ export function ContentTab({ clientId }: { clientId: string }): JSX.Element {
           className="w-40"
           placeholder=""
         />
-        <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}>
+        <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />} onClick={() => setAddOpen(true)}>
           Novo Conteúdo
         </Button>
       </div>

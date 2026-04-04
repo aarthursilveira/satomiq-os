@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/shared/database/prisma.js";
+
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { config } from "@/config/env.js";
@@ -6,7 +7,6 @@ import { AppError } from "@/shared/errors/AppError.js";
 import { SECURITY, ERROR_MESSAGES } from "@satomiq/shared";
 import type { AuthPayload, TokenPair, User, UserRole } from "@satomiq/shared";
 
-const prisma = new PrismaClient();
 
 export interface RegisterInput {
   name: string;

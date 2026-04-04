@@ -1,9 +1,9 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { prisma } from "@/shared/database/prisma.js";
+import { Prisma } from "@prisma/client";
 import { AppError } from "@/shared/errors/AppError.js";
 import { slugify } from "@satomiq/shared";
 import { ERROR_MESSAGES } from "@satomiq/shared";
 
-const prisma = new PrismaClient();
 
 export interface CreateClientInput {
   name: string;

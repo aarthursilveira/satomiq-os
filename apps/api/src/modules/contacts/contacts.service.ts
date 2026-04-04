@@ -1,7 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/shared/database/prisma.js";
+
 import { AppError } from "@/shared/errors/AppError.js";
 
-const prisma = new PrismaClient();
 
 export interface CreateContactInput {
   name: string;

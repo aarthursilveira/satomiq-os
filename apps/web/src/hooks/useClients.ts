@@ -119,3 +119,27 @@ export function useClientContent(clientId: string) {
     enabled: Boolean(clientId),
   });
 }
+
+export function useCreateContact(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) => clientsService.createContact(clientId, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["clients", clientId, "contacts"] });
+      toast.success("Contato adicionado!");
+    },
+    onError: () => toast.error("Erro ao adicionar contato."),
+  });
+}
+
+export function useCreateContent(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) => clientsService.createContent({ ...body, clientId }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["clients", clientId, "content"] });
+      toast.success("Conteúdo criado!");
+    },
+    onError: () => toast.error("Erro ao criar conteúdo."),
+  });
+}

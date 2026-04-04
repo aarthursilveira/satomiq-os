@@ -85,7 +85,7 @@ export function createApp(): Express {
       res: Response,
       _next: NextFunction,
     ) => {
-      if (error instanceof AppError || error.name === "AppError") {
+      if (error instanceof AppError || ("brand" in error && (error as { brand: unknown }).brand === "AppError")) {
         const appError = error as AppError;
         logger.error(
           { statusCode: appError.statusCode, code: appError.code },

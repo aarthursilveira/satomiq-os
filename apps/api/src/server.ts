@@ -1,10 +1,9 @@
 import { createApp } from "@/app.js";
 import { config } from "@/config/env.js";
 import logger from "@/shared/utils/logger.js";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/shared/database/prisma.js";
 
 const app = createApp();
-const prisma = new PrismaClient();
 
 async function startServer(): Promise<void> {
   try {

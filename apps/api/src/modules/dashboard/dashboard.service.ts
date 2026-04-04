@@ -1,6 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/shared/database/prisma.js";
 
-const prisma = new PrismaClient();
+
 
 export interface DashboardStats {
   clients: {

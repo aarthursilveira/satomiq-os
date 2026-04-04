@@ -29,16 +29,27 @@ function getBreadcrumbs(pathname: string): string[] {
 }
 
 export function Topbar(): JSX.Element {
-  const { openCommandPalette, toggleSidebar, sidebarCollapsed } = useUIStore();
+  const { openCommandPalette, toggleSidebar, sidebarCollapsed, openSidebarMobile } = useUIStore();
   const location = useLocation();
   const breadcrumbs = getBreadcrumbs(location.pathname);
 
   return (
     <header className="h-14 flex items-center gap-3 px-4 bg-bg-secondary border-b border-border-subtle flex-shrink-0">
+      {/* Mobile hamburger — always visible on small screens */}
+      <button
+        onClick={openSidebarMobile}
+        className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors md:hidden"
+        aria-label="Abrir menu"
+      >
+        <Menu className="w-4 h-4" />
+      </button>
+
+      {/* Desktop hamburger — only when sidebar is collapsed */}
       {sidebarCollapsed && (
         <button
           onClick={toggleSidebar}
-          className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+          className="hidden md:block p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+          aria-label="Expandir sidebar"
         >
           <Menu className="w-4 h-4" />
         </button>
@@ -67,6 +78,16 @@ export function Topbar(): JSX.Element {
 
       {/* Actions */}
       <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Mobile: ícone de busca solo */}
+        <button
+          onClick={openCommandPalette}
+          className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors sm:hidden"
+          aria-label="Buscar"
+        >
+          <Search className="w-4 h-4" />
+        </button>
+
+        {/* Desktop: botão com texto + atalho */}
         <Button
           variant="ghost"
           size="sm"
@@ -80,7 +101,10 @@ export function Topbar(): JSX.Element {
           </kbd>
         </Button>
 
-        <button className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors relative">
+        <button
+          className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors relative"
+          aria-label="Notificações"
+        >
           <Bell className="w-4 h-4" />
         </button>
       </div>

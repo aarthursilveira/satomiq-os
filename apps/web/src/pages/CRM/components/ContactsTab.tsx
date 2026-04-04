@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Phone, Mail, MessageCircle, Star, Plus, Users } from "lucide-react";
 import { useClientContacts } from "@/hooks/useClients.js";
+import { AddContactModal } from "@/pages/CRM/components/AddContactModal.js";
 import { Avatar } from "@/components/ui/Avatar.js";
 import { Button } from "@/components/ui/Button.js";
 import { EmptyState } from "@/components/feedback/EmptyState.js";
@@ -18,6 +19,7 @@ interface ContactData {
 }
 
 export function ContactsTab({ clientId }: { clientId: string }): JSX.Element {
+  const [addOpen, setAddOpen] = useState(false);
   const { data, isLoading } = useClientContacts(clientId);
   const contacts = (data as ContactData[] | undefined) ?? [];
 
@@ -40,20 +42,25 @@ export function ContactsTab({ clientId }: { clientId: string }): JSX.Element {
 
   if (contacts.length === 0) {
     return (
-      <EmptyState
-        icon={<Users className="w-5 h-5" />}
-        title="Nenhum contato cadastrado"
-        description="Adicione pessoas de contato deste cliente."
-        action={
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}>
-            Adicionar Contato
-          </Button>
-        }
-      />
+      <>
+        <AddContactModal open={addOpen} onClose={() => setAddOpen(false)} clientId={clientId} />
+        <EmptyState
+          icon={<Users className="w-5 h-5" />}
+          title="Nenhum contato cadastrado"
+          description="Adicione pessoas de contato deste cliente."
+          action={
+            <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />} onClick={() => setAddOpen(true)}>
+              Adicionar Contato
+            </Button>
+          }
+        />
+      </>
     );
   }
 
   return (
+    <>
+      <AddContactModal open={addOpen} onClose={() => setAddOpen(false)} clientId={clientId} />
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {contacts.map((contact, i) => (
         <motion.div
@@ -110,5 +117,6 @@ export function ContactsTab({ clientId }: { clientId: string }): JSX.Element {
         </motion.div>
       ))}
     </div>
+    </>
   );
 }

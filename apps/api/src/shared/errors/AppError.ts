@@ -1,4 +1,6 @@
 export class AppError extends Error {
+  readonly brand = "AppError" as const;
+
   constructor(
     public statusCode: number,
     message: string,

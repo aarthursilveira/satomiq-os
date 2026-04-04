@@ -212,7 +212,7 @@ export default function DashboardPage(): JSX.Element {
 
       {/* KPI Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {Array.from({ length: 6 }, (_, i) => (
             <div key={i} className="card p-5">
               <Skeleton className="w-9 h-9 rounded-lg mb-3" />
@@ -222,7 +222,7 @@ export default function DashboardPage(): JSX.Element {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {kpis.map((kpi, i) => (
             <KpiCard key={i} {...kpi} />
           ))}

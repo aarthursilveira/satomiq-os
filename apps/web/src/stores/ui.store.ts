@@ -2,15 +2,19 @@ import { create } from "zustand";
 
 interface UIState {
   sidebarCollapsed: boolean;
+  sidebarMobileOpen: boolean;
   commandPaletteOpen: boolean;
   toggleSidebar: () => void;
   setSidebarCollapsed: (value: boolean) => void;
+  openSidebarMobile: () => void;
+  closeSidebarMobile: () => void;
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
   sidebarCollapsed: false,
+  sidebarMobileOpen: false,
   commandPaletteOpen: false,
 
   toggleSidebar: () => {
@@ -19,6 +23,14 @@ export const useUIStore = create<UIState>((set) => ({
 
   setSidebarCollapsed: (value) => {
     set({ sidebarCollapsed: value });
+  },
+
+  openSidebarMobile: () => {
+    set({ sidebarMobileOpen: true });
+  },
+
+  closeSidebarMobile: () => {
+    set({ sidebarMobileOpen: false });
   },
 
   openCommandPalette: () => {

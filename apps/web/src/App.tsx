@@ -10,6 +10,8 @@ const DashboardPage = lazy(() => import("@/pages/Dashboard/DashboardPage.js"));
 const ClientListPage = lazy(() => import("@/pages/CRM/ClientListPage.js"));
 const ClientProfilePage = lazy(() => import("@/pages/CRM/ClientProfilePage.js"));
 const PipelinePage = lazy(() => import("@/pages/CRM/PipelinePage.js"));
+const TasksPage = lazy(() => import("@/pages/Tasks/TasksPage.js"));
+const SettingsPage = lazy(() => import("@/pages/Settings/SettingsPage.js"));
 
 function PageLoader(): JSX.Element {
   return (
@@ -49,6 +51,14 @@ export default function App(): JSX.Element {
           }
         />
         <Route
+          path="/crm/pipeline"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <PipelinePage />
+            </Suspense>
+          }
+        />
+        <Route
           path="/crm/:id"
           element={
             <Suspense fallback={<PageLoader />}>
@@ -57,10 +67,18 @@ export default function App(): JSX.Element {
           }
         />
         <Route
-          path="/crm/pipeline"
+          path="/tasks"
           element={
             <Suspense fallback={<PageLoader />}>
-              <PipelinePage />
+              <TasksPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <SettingsPage />
             </Suspense>
           }
         />

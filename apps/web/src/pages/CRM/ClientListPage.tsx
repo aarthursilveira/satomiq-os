@@ -223,7 +223,7 @@ export default function ClientListPage(): JSX.Element {
           options={STATUS_OPTIONS}
           value={status}
           onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-          className="w-40"
+          className="w-full sm:w-40"
           placeholder=""
         />
 
@@ -231,11 +231,11 @@ export default function ClientListPage(): JSX.Element {
           options={TYPE_OPTIONS}
           value={type}
           onChange={(e) => { setType(e.target.value); setPage(1); }}
-          className="w-36"
+          className="w-full sm:w-36"
           placeholder=""
         />
 
-        <div className="ml-auto flex items-center bg-bg-tertiary border border-border-default rounded p-0.5 gap-0.5">
+        <div className="sm:ml-auto flex items-center bg-bg-tertiary border border-border-default rounded p-0.5 gap-0.5">
           <button
             onClick={() => setViewMode("grid")}
             className={cn(

@@ -86,3 +86,8 @@ export async function fetchClientContent(clientId: string, params: Record<string
   const { data } = await api.get<ApiResponse<unknown[]>>(`/content?${qs}`);
   return data;
 }
+
+export async function createContent(body: Record<string, unknown>) {
+  const { data } = await api.post<ApiResponse<unknown>>("/content", body);
+  return data.data;
+}

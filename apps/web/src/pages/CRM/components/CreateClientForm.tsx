@@ -54,7 +54,7 @@ export function CreateClientForm({ onSubmit, loading }: CreateClientFormProps): 
         {...register("name", { required: "Nome é obrigatório" })}
       />
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Select
           label="Tipo"
           options={[
@@ -76,17 +76,17 @@ export function CreateClientForm({ onSubmit, loading }: CreateClientFormProps): 
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Email" type="email" placeholder="email@exemplo.com" {...register("email")} />
         <Input label="Telefone" placeholder="+55 11 99999-9999" {...register("phone")} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="WhatsApp" placeholder="+55 11 99999-9999" {...register("whatsapp")} />
         <Input label="Instagram" placeholder="@usuario" {...register("instagram")} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Valor do Contrato (R$)" type="number" step="0.01" placeholder="0.00" {...register("contractValue")} />
         <Input label="Dia de Pagamento" type="number" min="1" max="31" placeholder="15" {...register("paymentDay")} />
       </div>

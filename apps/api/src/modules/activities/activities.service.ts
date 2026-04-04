@@ -1,6 +1,6 @@
-import { PrismaClient, ActivityType, Prisma } from "@prisma/client";
+import { prisma } from "@/shared/database/prisma.js";
+import { ActivityType, Prisma } from "@prisma/client";
 
-const prisma = new PrismaClient();
 
 export interface CreateActivityInput {
   type: ActivityType | string;

@@ -1,9 +1,9 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { prisma } from "@/shared/database/prisma.js";
+import { Prisma } from "@prisma/client";
 import { AppError } from "@/shared/errors/AppError.js";
 import { ERROR_MESSAGES } from "@satomiq/shared";
 import * as activitiesService from "@/modules/activities/activities.service.js";
 
-const prisma = new PrismaClient();
 
 export interface CreateNoteInput {
   content: string;

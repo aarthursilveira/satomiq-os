@@ -1,7 +1,7 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { prisma } from "@/shared/database/prisma.js";
+import { Prisma } from "@prisma/client";
 import { AppError } from "@/shared/errors/AppError.js";
 
-const prisma = new PrismaClient();
 
 export async function listPipelines() {
   return prisma.pipeline.findMany({

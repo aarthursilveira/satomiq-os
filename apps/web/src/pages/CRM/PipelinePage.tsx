@@ -111,7 +111,7 @@ function StageColumn({
   );
 
   return (
-    <div className="flex flex-col w-72 flex-shrink-0">
+    <div className="flex flex-col w-64 sm:w-72 flex-shrink-0" style={{ scrollSnapAlign: "start" }}>
       {/* Stage header */}
       <div className="flex items-center gap-2 mb-3 px-1">
         <div
@@ -223,7 +223,7 @@ export default function PipelinePage(): JSX.Element {
       {isLoading ? (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="w-72 flex-shrink-0">
+            <div key={i} className="w-64 sm:w-72 flex-shrink-0" style={{ scrollSnapAlign: "start" }}>
               <div className="flex items-center gap-2 mb-3">
                 <Skeleton circle className="w-2.5 h-2.5" />
                 <Skeleton className="h-4 w-24" />
@@ -253,7 +253,7 @@ export default function PipelinePage(): JSX.Element {
         />
       ) : (
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
+          <div className="flex gap-4 overflow-x-auto pb-4 flex-1 scroll-smooth" style={{ scrollSnapType: "x mandatory" }}>
             {pipeline.stages
               .sort((a, b) => a.order - b.order)
               .map((stage, i) => (

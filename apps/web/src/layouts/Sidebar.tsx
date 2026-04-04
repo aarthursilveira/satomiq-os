@@ -34,7 +34,7 @@ const BOTTOM_ITEMS: NavItem[] = [
 ];
 
 export function Sidebar(): JSX.Element {
-  const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const { sidebarCollapsed, toggleSidebar, closeSidebarMobile } = useUIStore();
   const user = useAuthStore((s) => s.user);
 
   return (
@@ -81,7 +81,7 @@ export function Sidebar(): JSX.Element {
         <ul className="flex flex-col gap-0.5">
           {NAV_ITEMS.map((item) => (
             <li key={item.to}>
-              <NavItem item={item} collapsed={sidebarCollapsed} />
+              <NavItem item={item} collapsed={sidebarCollapsed} onNavigate={closeSidebarMobile} />
             </li>
           ))}
         </ul>
@@ -90,7 +90,7 @@ export function Sidebar(): JSX.Element {
       {/* Bottom */}
       <div className="px-2 py-3 border-t border-border-subtle flex flex-col gap-0.5">
         {BOTTOM_ITEMS.map((item) => (
-          <NavItem key={item.to} item={item} collapsed={sidebarCollapsed} />
+          <NavItem key={item.to} item={item} collapsed={sidebarCollapsed} onNavigate={closeSidebarMobile} />
         ))}
 
         {/* User profile */}
@@ -119,14 +119,17 @@ export function Sidebar(): JSX.Element {
 function NavItem({
   item,
   collapsed,
+  onNavigate,
 }: {
   item: NavItem;
   collapsed: boolean;
+  onNavigate?: () => void;
 }): JSX.Element {
   return (
     <NavLink
       to={item.to}
       title={collapsed ? item.label : undefined}
+      onClick={onNavigate}
       className={({ isActive }) =>
         cn(
           "flex items-center gap-2.5 px-2 py-2 rounded text-sm transition-all duration-150 group relative",

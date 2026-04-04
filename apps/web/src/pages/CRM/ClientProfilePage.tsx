@@ -31,6 +31,7 @@ import { ActivitiesTab } from "@/pages/CRM/components/ActivitiesTab.js";
 import { TasksTab } from "@/pages/CRM/components/TasksTab.js";
 import { ContactsTab } from "@/pages/CRM/components/ContactsTab.js";
 import { ContentTab } from "@/pages/CRM/components/ContentTab.js";
+import { EditClientModal } from "@/pages/CRM/components/EditClientModal.js";
 
 type Tab = "overview" | "notes" | "activities" | "tasks" | "content" | "contacts";
 
@@ -89,6 +90,8 @@ export default function ClientProfilePage(): JSX.Element {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
+  const [editOpen, setEditOpen] = useState(false);
+
   const { data: clientData, isLoading } = useClient(id ?? "");
   const client = clientData as ClientData | undefined;
 
@@ -125,6 +128,7 @@ export default function ClientProfilePage(): JSX.Element {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
+      <EditClientModal open={editOpen} onClose={() => setEditOpen(false)} client={client} />
       {/* Back */}
       <motion.div
         initial={{ opacity: 0, y: 4 }}
@@ -153,7 +157,7 @@ export default function ClientProfilePage(): JSX.Element {
           <div className="card p-5">
             <div className="flex items-start justify-between mb-4">
               <Avatar name={client.name} src={client.avatarUrl} size="lg" />
-              <Button variant="ghost" size="sm" leftIcon={<Edit className="w-3.5 h-3.5" />}>
+              <Button variant="ghost" size="sm" leftIcon={<Edit className="w-3.5 h-3.5" />} onClick={() => setEditOpen(true)}>
                 Editar
               </Button>
             </div>
