@@ -36,7 +36,7 @@ services:
       postgres:
         condition: service_healthy
     command: >
-      sh -c "npx prisma migrate deploy --schema prisma/schema.prisma && npm run start:prod"
+      sh -c "npx prisma db push --schema prisma/schema.prisma --accept-data-loss && npm run start:prod"
     networks:
       - satomiq-network
 

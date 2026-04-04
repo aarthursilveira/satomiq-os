@@ -35,7 +35,6 @@ yarn-error.log*
 lerna-debug.log*
 
 # Prisma
-prisma/migrations/
 .prisma/
 
 # Docker
