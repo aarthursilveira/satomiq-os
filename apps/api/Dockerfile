@@ -3,17 +3,29 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy root and workspace files
+# Copy root workspace configurations
 COPY package*.json ./
+COPY turbo.json ./
+
+# Copy packages and apps
 COPY packages/shared ./packages/shared
 COPY apps/api ./apps/api
 
-# Install dependencies
-RUN npm ci --omit=dev
+# Install ALL dependencies (including dev) to ensure tsc is available
+RUN npm ci
 
-# Build TypeScript
+# Build shared package
+WORKDIR /app/packages/shared
+RUN npm run build
+
+# Build API application
 WORKDIR /app/apps/api
 RUN npm run build
+
+# Prune devDependencies to keep the runtime node_modules lightweight
+# This is done at the root level to respect workspace links
+WORKDIR /app
+RUN npm prune --omit=dev
 
 # === RUNTIME STAGE ===
 FROM node:20-alpine
@@ -23,14 +35,21 @@ WORKDIR /app
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
 
-# The 'node' user already exists in node:20-alpine image
-
-# Copy built application from builder
+# Copy root configurations and pruned node_modules (preserves workspace symlinks)
+COPY --from=builder --chown=node:node /app/package*.json ./
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
-COPY --from=builder --chown=node:node /app/apps/api/dist ./dist
-COPY --from=builder --chown=node:node /app/apps/api/package.json ./package.json
 
-# Copy Prisma schema and migrations
+# Copy shared package (required for symlinked resolution)
+COPY --from=builder --chown=node:node /app/packages/shared/package.json ./packages/shared/
+COPY --from=builder --chown=node:node /app/packages/shared/dist ./packages/shared/dist
+
+# Setup API workspace working directory
+WORKDIR /app/apps/api
+
+# Copy API built code and files
+COPY --from=builder --chown=node:node /app/apps/api/package.json ./
+COPY --from=builder --chown=node:node /app/apps/api/dist ./dist
+# Copy schema to /app/apps/api/prisma (matches docker-compose.yml expectation)
 COPY --from=builder --chown=node:node /app/apps/api/src/database/prisma ./prisma
 
 # Switch to non-root user
