@@ -12,7 +12,7 @@ async function main(): Promise<void> {
     update: {},
     create: {
       email: "admin@satomiq.com",
-      passwordHash: await bcrypt.hash("Admin@123456", 12),
+      passwordHash: await bcrypt.hash("Arthuros@18", 12),
       name: "Arthur - Admin",
       role: "ADMIN",
       avatarUrl: null,
