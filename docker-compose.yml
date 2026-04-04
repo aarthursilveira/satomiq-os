@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${DB_USER:?Variável DB_USER é obrigatória}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Variável DB_PASSWORD é obrigatória}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_v2:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USER}" ]
       interval: 10s
@@ -54,7 +54,7 @@ services:
       - satomiq-network
 
 volumes:
-  postgres_data:
+  postgres_data_v2:
     driver: local
 
 networks:
