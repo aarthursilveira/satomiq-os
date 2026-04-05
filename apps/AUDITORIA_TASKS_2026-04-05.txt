@@ -1,0 +1,626 @@
+================================================================================
+  AUDITORIA ESPECÍFICA — MENU "TASKS" (TAREFAS)
+  Data: 2026-04-05
+  Auditor: Antigravity AI (Claude Sonnet 4.6)
+  Escopo: Módulo Tasks do frontend e backend — diagnóstico de bugs
+  Arquivo: apps/web/src/pages/Tasks/TasksPage.tsx (e dependências)
+================================================================================
+
+NOTA: Esta auditoria substitui e detalha as descobertas da AUDITORIA_COMPLETA.txt
+para o módulo de Tarefas especificamente, pois o código evoluiu desde 2026-04-03.
+A situação MUDOU: TasksPage.tsx AGORA EXISTE (foi criada), então o bug mudou de
+"página inexistente" para "página existente mas com funcionalidades quebradas".
+
+================================================================================
+  ESTADO ATUAL DO MÓDULO TASKS (leitura direta do código-fonte)
+================================================================================
+
+  Frontend:
+    ✅ apps/web/src/pages/Tasks/TasksPage.tsx     — EXISTE (214 linhas)
+    ✅ apps/web/src/App.tsx (linha 13, 70-76)     — Rota /tasks registrada e lazy
+    ✅ apps/web/src/hooks/useTasks.ts             — EXISTE (48 linhas)
+    ✅ apps/web/src/services/tasks.service.ts     — EXISTE (52 linhas)
+    ✅ apps/web/src/layouts/Sidebar.tsx (linha 29) — Link "Tarefas" → /tasks
+
+  Backend:
+    ✅ apps/api/src/modules/tasks/tasks.controller.ts — EXISTE
+    ✅ apps/api/src/modules/tasks/tasks.service.ts    — EXISTE
+    ✅ apps/api/src/modules/tasks/tasks.routes.ts     — EXISTE
+    ✅ apps/api/src/app.ts (linha 70)                 — Rota /api/tasks montada
+
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BUG #1 — CRÍTICO: Botão "+ Nova Tarefa" não abre modal nem executa nada   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE:    ████████████ CRÍTICA (funcionalidade principal quebrada)
+ARQUIVO:      apps/web/src/pages/Tasks/TasksPage.tsx — linhas 114-116
+TIPO:         Lógica de UI ausente — handler não conectado
+
+CÓDIGO ATUAL (linhas 114-116):
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5  │
+  │  h-3.5" />}>                                                            │
+  │    Nova Tarefa                                                          │
+  │  </Button>                                                              │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+CAUSA RAIZ:
+  O componente <Button> não possui um prop "onClick" definido.
+  O componente Button.tsx (linha 62) passa todos os HTMLButtonElement
+  props para o <button> nativo via spread `{...props}`, então tecnicamente
+  aceita onClick, mas NENHUM onClick foi passado no uso dentro de TasksPage.
+
+  Resultado: ao clicar, não acontece absolutamente nada — sem modal, sem
+  formulário, sem toast de erro, sem console.error. Silêncio total.
+
+CONFIRMAÇÃO ADICIONAL:
+  - O hook useCreateTask() EXISTE em useTasks.ts (linhas 13-23) e está
+    funcionalmente completo com mutationFn, onSuccess e onError.
+  - O componente Modal.tsx EXISTE em components/ui/Modal.tsx e está pronto.
+  - O serviço createTask() EXISTE em services/tasks.service.ts (linha 38).
+  - A API POST /api/tasks está registrada e funcional no backend.
+  - NENHUM desses recursos está conectado ao botão "Nova Tarefa".
+
+FLUXO QUE DEVERIA ACONTECER (mas não acontece):
+  Usuário clica → Modal abre → formulário é preenchido →
+  useCreateTask().mutate(dados) é chamado → onSuccess invalida cache →
+  lista recarrega → toast "Tarefa criada com sucesso!" aparece
+
+FLUXO QUE ACONTECE:
+  Usuário clica → nada.
+
+CORREÇÃO NECESSÁRIA:
+  1. Adicionar estado booleano na TasksPage:
+       const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  2. Conectar o estado ao botão:
+       <Button onClick={() => setIsCreateOpen(true)} ...>
+
+  3. Criar componente CreateTaskModal (ou inline no TasksPage) que use:
+       - Modal.tsx como container
+       - Input.tsx para o campo "Título" (obrigatório)
+       - Textarea.tsx para "Descrição" (opcional)
+       - Select.tsx com PRIORITY_OPTIONS para "Prioridade"
+       - Input type="date" para "Data de vencimento"
+       - Select para "Cliente" (opcional — buscar /api/clients)
+       - useCreateTask() para submeter
+
+  4. Conectar o submit ao hook:
+       const { mutate, isPending } = useCreateTask();
+       const handleSubmit = (formData) => mutate(formData);
+
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BUG #2 — ALTO: Cada TaskRow não possui ação de clique                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE:    ALTA — tarefa não pode ser editada nem marcada como concluída
+ARQUIVO:      apps/web/src/pages/Tasks/TasksPage.tsx — linhas 50-87
+TIPO:         Interatividade ausente
+
+CÓDIGO ATUAL (função TaskRow, linha 54-86):
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  <div className="flex items-center gap-3 px-4 py-3 border-b ...        │
+  │    hover:bg-bg-tertiary/30 transition-colors">                         │
+  │    <div className={cn(...)} >                                           │
+  │      {isDone ? <CheckSquare .../> : <Circle .../>}                     │
+  │    </div>                                                               │
+  │    ...                                                                  │
+  │  </div>                                                                 │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+PROBLEMAS IDENTIFICADOS:
+
+  2a) O ícone Circle/CheckSquare (checkbox visual) não tem onClick:
+      - Não é possível marcar uma tarefa como concluída clicando nela
+      - O hook useUpdateTask() EXISTE mas não é usado em TaskRow
+      - Clicar no ícone não faz nada
+
+  2b) A div que envolve toda a task tem hover visual (hover:bg-tertiary/30)
+      SUGERINDO que ela é clicável, mas NÃO possui onClick:
+      - O usuário recebe feedback visual falso de "isso é clicável"
+      - Não há abertura de modal de detalhes/edição
+
+  2c) Ausência de menu de ações (três pontos / kebab menu):
+      - Não existe forma de deletar uma tarefa
+      - Não existe forma de editar título, descrição ou data de vencimento
+      - O hook useDeleteTask() EXISTE mas não é usado em lugar algum
+
+CORREÇÃO NECESSÁRIA:
+  2a) Tornar o ícone de check clicável para toggle de status:
+        <div
+          onClick={() => updateTask(task.id, {
+            status: isDone ? 'TODO' : 'DONE'
+          })}
+          className="cursor-pointer ..."
+        >
+
+  2b) Tornar o TaskRow clicável para abrir um modal de detalhes/edição,
+      OU adicionar um botão de edição explícito (ícone lápis).
+
+  2c) Adicionar um menu de contexto (ex: DropdownMenu) com opções:
+        - "Editar" → abre modal com campos preenchidos
+        - "Marcar como concluída" → chama useUpdateTask
+        - "Excluir" → chama useDeleteTask com confirmação
+
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BUG #3 — MÉDIO: Dados da lista podem nunca carregar sem feedback claro    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE:    MÉDIA — degradação silenciosa de UX
+ARQUIVO:      apps/web/src/pages/Tasks/TasksPage.tsx — linha 93
+TIPO:         Estado de erro não tratado
+
+CÓDIGO ATUAL (linha 93-97):
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  const { data, isLoading } = useTasks({                                 │
+  │    status: status || undefined,                                         │
+  │    priority: priority || undefined,                                     │
+  │    limit: 100,                                                          │
+  │  });                                                                    │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+PROBLEMA:
+  useQuery retorna três estados relevantes: isLoading, isError, e data.
+  O componente desestrutura apenas { data, isLoading } — isError é ignorado.
+
+  Se a API estiver fora do ar, retornar 401, 500 ou timeout, o usuário verá:
+    - O loading skeleton por um momento
+    - Depois o EmptyState "Nenhuma tarefa encontrada"
+    - SEM nenhuma mensagem de erro, SEM botão de retry
+
+  O usuário não consegue distinguir entre "não há tarefas" e "algo deu errado".
+
+PROVA:
+  O hook useTasks retorna o objeto do useQuery do React Query.
+  O React Query expõe `isError` e `error` automaticamente.
+  Eles simplesmente não são usados.
+
+CORREÇÃO NECESSÁRIA:
+  const { data, isLoading, isError } = useTasks({ ... });
+
+  // No JSX, adicionar caso de erro:
+  if (isError) return (
+    <EmptyState
+      icon={<AlertCircle className="w-5 h-5 text-status-error" />}
+      title="Erro ao carregar tarefas"
+      description="Não foi possível conectar ao servidor. Tente novamente."
+      action={
+        <Button onClick={() => refetch()}>Tentar novamente</Button>
+      }
+    />
+  );
+
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BUG #4 — MÉDIO: Limite fixo de 100 tarefas — sem paginação               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE:    MÉDIA — escala problemática
+ARQUIVO:      apps/web/src/pages/Tasks/TasksPage.tsx — linha 96
+TIPO:         Design de dados incorreto
+
+CÓDIGO ATUAL:
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  const { data, isLoading } = useTasks({                                 │
+  │    ...                                                                  │
+  │    limit: 100,   // <-- hardcoded                                       │
+  │  });                                                                    │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+PROBLEMA:
+  O sistema busca SEMPRE as primeiras 100 tarefas, independente de quantas
+  existem. Isso tem dois efeitos negativos:
+
+  a) Se houver mais de 100 tarefas, as demais são silenciosamente ignoradas.
+     O usuário não verá página 2, não haverá indicação de que há mais tarefas.
+
+  b) Buscar 100 registros de uma vez, com os includes (assignee, client,
+     project), gera uma resposta JSON grande e queries Prisma pesadas.
+
+OBSERVAÇÃO:
+  O backend suporta paginação completa (page, limit, sort, order) com
+  sendPaginated() retornando meta: { page, limit, total, totalPages }.
+  A infra existe — o frontend simplesmente ignora.
+
+CORREÇÃO NECESSÁRIA:
+  a) Implementar paginação no frontend (botões Anterior/Próximo) ou
+  b) Implementar infinite scroll com useInfiniteQuery do React Query, ou
+  c) Manter limit, mas mostrar um badge "Mostrando 100 de X tarefas"
+     usando o meta.total da resposta para informar o usuário.
+
+  Mínimo aceitável:
+    Usar data?.meta?.total para calcular se há mais itens e avisar o usuário.
+
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BUG #5 — MÉDIO: fetchTasks() usa dados incorretos da resposta paginada   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE:    MÉDIO — bug silencioso em tipagem e extração de dados
+ARQUIVO:      apps/web/src/services/tasks.service.ts — linha 34
+              apps/web/src/pages/TasksPage.tsx — linha 99
+
+CÓDIGO ATUAL em tasks.service.ts (linha 29-36):
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  export async function fetchTasks(filters: TaskFilters = {}) {          │
+  │    const params = new URLSearchParams();                                │
+  │    Object.entries(filters).forEach(([key, val]) => {                   │
+  │      if (val !== undefined && val !== "") params.set(key, String(val)); │
+  │    });                                                                  │
+  │    const { data } = await api.get<ApiResponse<unknown[]>>(`/tasks?...` │
+  │    return data;      // <-- retorna o objeto ApiResponse inteiro        │
+  │  });                                                                    │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+CÓDIGO ATUAL em TasksPage.tsx (linha 99):
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  const tasks = (data?.data as TaskData[] | undefined) ?? [];           │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+PROBLEMA:
+  O backend (tasks.controller.ts, linha 39) usa sendPaginated() que retorna:
+    { success: true, data: [...tasks], meta: { page, limit, total } }
+
+  O service retorna `data` (o objeto ApiResponse inteiro — correto).
+  O componente extrai `data?.data` — isso funciona para os itens.
+  MAS: `data?.meta` nunca é acessado → informação de paginação perdida.
+
+  Tipagem adicional: fetchTasks() é tipado como ApiResponse<unknown[]>,
+  mas o `data` retornado pelo axios já é o body parseado, então a tipagem
+  está errada — deveria ser:
+    api.get<ApiResponse<TaskData[]>>(`/tasks?${params}`)
+  Usando `unknown[]` força o cast inseguro na TasksPage.
+
+CORREÇÃO NECESSÁRIA:
+  1. Criar/importar a interface TaskData (ou similar) no service:
+       import type { Task } from "@satomiq/shared";
+       api.get<ApiResponse<Task[]>>(`/tasks?${params}`)
+
+  2. Retornar os dados extraídos diretamente:
+       return data; // já está correto — mas tipar corretamente
+
+  3. Na TasksPage, usar o meta para exibir contagem:
+       const meta = data?.meta;
+       // mostrar: `Mostrando ${tasks.length} de ${meta?.total ?? '?'}`
+
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BUG #6 — BAIXO: EmptyState não oferece ação de criar tarefa              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE:    BAIXA — UX inferior
+ARQUIVO:      apps/web/src/pages/Tasks/TasksPage.tsx — linhas 157-161
+TIPO:         Oportunidade perdida de call-to-action
+
+CÓDIGO ATUAL (linhas 157-161):
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  <EmptyState                                                            │
+  │    icon={<CheckSquare className="w-5 h-5" />}                          │
+  │    title="Nenhuma tarefa encontrada"                                    │
+  │    description={status || priority                                      │
+  │      ? "Tente remover os filtros."                                      │
+  │      : "Crie sua primeira tarefa para começar."}                       │
+  │  />                                                                     │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+PROBLEMA:
+  O componente EmptyState aceita uma prop `action?: ReactNode`.
+  Quando não há filtros aplicados, o texto diz "Crie sua primeira tarefa
+  para começar" — MAS não há botão de ação abaixo dessa mensagem.
+  O usuário vê o texto e não tem botão; tem que subir até o topo para
+  clicar em "+ Nova Tarefa" (que ainda nem funciona — BUG #1).
+
+CORREÇÃO NECESSÁRIA:
+  // Quando não há filtros, passar action com o botão:
+  <EmptyState
+    icon={<CheckSquare className="w-5 h-5" />}
+    title="Nenhuma tarefa encontrada"
+    description={status || priority
+      ? "Tente remover os filtros."
+      : "Crie sua primeira tarefa para começar."}
+    action={
+      !(status || priority) && (
+        <Button
+          variant="primary"
+          size="sm"
+          leftIcon={<Plus className="w-3.5 h-3.5" />}
+          onClick={() => setIsCreateOpen(true)}
+        >
+          Nova Tarefa
+        </Button>
+      )
+    }
+  />
+
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BUG #7 — BAIXO: PRIORITY_COLORS definido localmente e duplica o shared   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE:    BAIXA — duplicação de código / risco de dessincronização
+ARQUIVO:      apps/web/src/pages/Tasks/TasksPage.tsx — linhas 43-48
+TIPO:         Código duplicado e inconsistente
+
+CÓDIGO ATUAL (linhas 43-48):
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  const PRIORITY_COLORS: Record<string, string> = {                      │
+  │    LOW: "text-text-tertiary",                                           │
+  │    MEDIUM: "text-status-warning",                                       │
+  │    HIGH: "text-status-error",                                           │
+  │    URGENT: "text-status-error",                                         │
+  │  };                                                                     │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+PROBLEMA:
+  O pacote @satomiq/shared já exporta PRIORITY_COLORS, mas em hex:
+    LOW: "#8E8E93", MEDIUM: "#F59E0B", HIGH: "#EF4444", URGENT: "#DC2626"
+
+  A TasksPage criou sua própria versão local com classes Tailwind.
+  Além de duplicar a lógica, o HIGH e URGENT usam a MESMA cor (status-error),
+  enquanto no shared são cores diferentes (#EF4444 vs #DC2626).
+
+  Isso cria divergência visual entre a Página de Tarefas e outros
+  componentes que usam o PRIORITY_COLORS do shared.
+
+  Adicionalmente, o nome `PRIORITY_COLORS` no arquivo local CONFLITA com
+  o import do `@satomiq/shared` (que também exporta PRIORITY_COLORS como hex).
+  O arquivo faz `import { ..., PRIORITY_LABELS } from "@satomiq/shared"` mas
+  NÃO importa PRIORITY_COLORS — em vez disso, redefine localmente.
+  Isso é enganoso para quem ler o código.
+
+CORREÇÃO NECESSÁRIA:
+  Renomear a constante local para PRIORITY_TEXT_CLASSES (ou similar)
+  para deixar claro que são classes CSS, não cores hex:
+    const PRIORITY_TEXT_CLASSES: Record<string, string> = { ... }
+
+  Ou preferível: mover essas classes para um helper compartilhado
+  em lib/ que converta prioridade em classe Tailwind.
+
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BUG #8 — BACKEND: tasks.service.ts não registra userId no createTask()   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE:    MÉDIA — rastreabilidade e auditoria comprometidas
+ARQUIVO:      apps/api/src/modules/tasks/tasks.service.ts — linhas 83-103
+TIPO:         Dado de auditoria ignorado
+
+CÓDIGO ATUAL (linhas 83-103):
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  export async function createTask(input: CreateTaskInput, creatorId:   │
+  │  string) {                                                              │
+  │    const task = await prisma.task.create({                             │
+  │      data: {                                                            │
+  │        title: input.title,                                             │
+  │        description: input.description,                                 │
+  │        status: input.status ?? "TODO",                                 │
+  │        priority: input.priority ?? "MEDIUM",                           │
+  │        dueDate: input.dueDate,                                         │
+  │        projectId: input.projectId,                                     │
+  │        clientId: input.clientId,                                       │
+  │        assigneeId: input.assigneeId,  // <-- pode ser quem cria        │
+  │      },                                                                 │
+  │      ...                                                                │
+  │    });                                                                  │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+PROBLEMA:
+  A função recebe `creatorId: string` como segundo parâmetro,
+  MAS esse parâmetro NUNCA É USADO no corpo da função.
+
+  O schema Task tem `assigneeId` (quem executa) mas não tem `creatorId`.
+  Então, não há como saber quem criou a tarefa — apenas quem foi atribuído.
+
+  Isso afeta a auditoria do sistema: se a tarefa não tiver `assigneeId`,
+  ninguém é associado a ela (criador é completamente anônimo).
+
+  Adicionalmente, ao criar a tarefa, nenhuma Activity é registrada no log
+  (ao contrário do updateTask(), que registra TASK_COMPLETED quando muda
+  o status para DONE), tornando a criação de tarefas invisível no timeline.
+
+CORREÇÃO RECOMENDADA:
+  Opção A: Se `assigneeId` não for fornecido, usar `creatorId` como
+  assignee padrão (a tarefa cria para si mesmo):
+    assigneeId: input.assigneeId ?? creatorId,
+
+  Opção B: Adicionar campo `createdById` ao schema Task no Prisma:
+    createdById  String?
+    createdBy    User?   @relation("CreatedTasks", ...)
+
+  Opção C (mínimo): Registrar uma Activity ao criar tarefa, para que
+  a ação apareça no timeline do cliente vinculado:
+    if (task.clientId) {
+      await activitiesService.createActivity({
+        type: "TASK_COMPLETED", // usar outro type ou adicionar TASK_CREATED
+        title: "Tarefa criada",
+        description: task.title,
+        clientId: task.clientId,
+        userId: creatorId,
+      });
+    }
+
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BUG #9 — BACKEND: updateTask() não permite remover assignee              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE:    BAIXA — limitação funcional
+ARQUIVO:      apps/api/src/modules/tasks/tasks.service.ts — linhas 127
+TIPO:         Lógica de update incompleta
+
+CÓDIGO ATUAL (linha 127):
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  ...(input.assigneeId !== undefined && { assigneeId: input.assigneeId })│
+  └─────────────────────────────────────────────────────────────────────────┘
+
+PROBLEMA:
+  Para remover o assignee de uma tarefa (desatribuir), o cliente precisaria
+  enviar `assigneeId: null`. Mas a interface UpdateTaskInput estende
+  Partial<CreateTaskInput> onde assigneeId é `string | undefined`.
+  `null` não é aceito pelo tipo.
+
+  Se o frontend tentar enviar `assigneeId: null`, o TypeScript vai reclamar.
+  Se enviar `assigneeId: undefined`, a condição `!== undefined` é falsa,
+  então o campo não é atualizado — o assignee nunca é removido.
+
+CORREÇÃO RECOMENDADA:
+  Ajustar a interface UpdateTaskInput para aceitar null:
+    assigneeId?: string | null;
+
+  E no service, tratar explicitamente:
+    ...(input.assigneeId !== undefined && { assigneeId: input.assigneeId })
+  Isso já funciona se null for aceito como valor (Prisma aceita null para
+  desconectar a relação opcional).
+
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BUG #10 — BACKEND: isRefreshing mutex existe mas é module-scope          ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+NOTA: Este bug afeta toda a autenticação e foi identificado na outra auditoria,
+mas é relevante mencionar aqui pois impacta diretamente o funcionamento do
+módulo Tasks quando o accessToken expira mid-session.
+
+GRAVIDADE:    MÉDIA — pode causar logout inesperado ao usar Tasks
+ARQUIVO:      apps/web/src/services/api.ts — linhas 22-81
+TIPO:         Race condition no refresh token
+
+PROBLEMA:
+  O mutex `isRefreshing` e `pendingRequests` EXISTEM no código (linhas 22-28),
+  e o interceptor parece implementado corretamente.
+
+  PORÉM: Ao recarregar a página, o accessToken NÃO é restaurado do storage
+  (auth.store.ts, linha 52-54: `partialize` só persiste user e isAuthenticated,
+  NÃO persiste tokens). Isso significa que após reload:
+
+  1. isAuthenticated = true (persiste)
+  2. accessToken = null (não persiste)
+  3. refreshToken = null (não persiste)
+
+  O interceptor tenta refresh → não tem refreshToken → chama logout().
+  O usuário é deslogado a cada reload de página.
+
+  Isso impacta diretamente o Tasks: se o usuário navegar para /tasks
+  após recarregar a página, será imediatamente redirecionado para /login.
+
+CORREÇÃO RECOMENDADA:
+  Ou persistir os tokens (com as ressalvas de segurança do BUG #08
+  da auditoria anterior), ou implementar um mecanismo de "silent refresh"
+  na inicialização do app que recupere os tokens via cookie httpOnly.
+
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  RESUMO CONSOLIDADO — MÓDULO TASKS                                         ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────┬──────────────────────────────────────────────┬──────────────┬──────────────┐
+│ #   │ PROBLEMA                                     │ PRIORIDADE   │ ESFORÇO EST. │
+├─────┼──────────────────────────────────────────────┼──────────────┼──────────────┤
+│  1  │ Botão "+ Nova Tarefa" sem onClick / sem modal │ P1 CRÍTICO   │ 2-4h         │
+│  2  │ TaskRow sem interação (toggle, editar, delete)│ P1 CRÍTICO   │ 2-3h         │
+│  3  │ isError não tratado — erro silencioso         │ P2 ALTO      │ 30min        │
+│  4  │ limit: 100 hardcoded, sem paginação           │ P2 ALTO      │ 1-2h         │
+│  5  │ Tipagem fraca (unknown) no fetchTasks         │ P3 MÉDIO     │ 30min        │
+│  6  │ EmptyState sem botão de ação                  │ P3 MÉDIO     │ 15min        │
+│  7  │ PRIORITY_COLORS duplicado e conflito de nome  │ P4 BAIXO     │ 15min        │
+│  8  │ creatorId ignorado, sem Activity no create    │ P3 MÉDIO     │ 30min-1h     │
+│  9  │ Não permite remover assignee (tipo null)       │ P4 BAIXO     │ 15min        │
+│ 10  │ Tokens não persistem → logout após reload     │ P2 ALTO      │ 2-4h         │
+└─────┴──────────────────────────────────────────────┴──────────────┴──────────────┘
+
+
+================================================================================
+  PLANO DE CORREÇÃO RECOMENDADO (ordem de execução)
+================================================================================
+
+SPRINT 1 — Funcionalidade básica (P1): ~4-7h total
+  ─────────────────────────────────────────────────
+  Passo 1: Criar componente CreateTaskModal.tsx
+    → Usar Modal.tsx + Input.tsx + Textarea.tsx + Select.tsx
+    → Campos: título (obrigatório), descrição, prioridade, data, cliente
+    → Conectar ao hook useCreateTask()
+
+  Passo 2: Conectar botão "Nova Tarefa" ao modal
+    → Adicionar useState<boolean> isCreateModalOpen
+    → onClick={() => setIsCreateModalOpen(true)}
+    → <CreateTaskModal open={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />
+
+  Passo 3: Tornar o ícone Circle/CheckSquare clicável para toggle DONE
+    → onClick no ícone: useUpdateTask(task.id).mutate({ status: isDone ? 'TODO' : 'DONE' })
+    → Mostrar estado de loading no ícone enquanto mutação acontece
+
+  Passo 4: Adicionar DropdownMenu de ações no TaskRow
+    → "Editar" → abre modal de edição pré-preenchido
+    → "Excluir" → useDeleteTask().mutate(task.id) com confirm dialog
+
+SPRINT 2 — Robustez (P2): ~3-6h total
+  ─────────────────────────────────────────────────
+  Passo 5: Tratar estado isError na TasksPage
+    → Desestruturar isError e refetch do useTasks
+    → Mostrar EmptyState de erro com botão "Tentar novamente"
+
+  Passo 6: Implementar paginação básica
+    → Adicionar state page, botões Anterior e Próximo
+    → Mostrar "Tarefas X-Y de Z" usando meta.total da resposta
+
+  Passo 7: Resolver logout após reload de página
+    → Configurar refresh automático no bootstrap do App.tsx
+    → Ou persistir tokens de forma segura
+
+SPRINT 3 — Qualidade (P3/P4): ~2-3h total
+  ─────────────────────────────────────────────────
+  Passo 8: Tipar fetchTasks corretamente com interface TaskData
+  Passo 9: Registrar Activity ao criar Task (se clientId presente)
+  Passo 10: Renomear PRIORITY_COLORS local para PRIORITY_TEXT_CLASSES
+  Passo 11: Corrigir UpdateTaskInput para aceitar assigneeId: null
+
+
+================================================================================
+  ARQUIVOS QUE PRECISAM SER MODIFICADOS/CRIADOS
+================================================================================
+
+  [CRIAR]    apps/web/src/pages/Tasks/CreateTaskModal.tsx
+  [CRIAR]    apps/web/src/pages/Tasks/TaskDetailModal.tsx (opcional)
+  [MODIFICAR] apps/web/src/pages/Tasks/TasksPage.tsx
+               → Adicionar useState para os modais
+               → Conectar onClick no botão "Nova Tarefa"
+               → Tratar isError
+               → Adicionar controle de paginação
+               → Corrigir nome PRIORITY_COLORS → PRIORITY_TEXT_CLASSES
+
+  [MODIFICAR] apps/web/src/services/tasks.service.ts
+               → Tipar fetchTasks com TaskData ao invés de unknown[]
+
+  [MODIFICAR] apps/api/src/modules/tasks/tasks.service.ts
+               → Registrar Activity ao criar task
+               → Corrigir uso do creatorId
+
+  [MODIFICAR] packages/shared/src/types/index.ts
+               → Ajustar UpdateTaskInput.assigneeId para aceitar null
+
+
+================================================================================
+  FIM DA AUDITORIA TASKS — 2026-04-05
+  Total bugs identificados neste módulo: 10
+  Bugs críticos (P1): 2  — Botão inoperante, tasks sem interação
+  Bugs altos   (P2): 3  — isError, paginação, logout após reload
+  Bugs médios  (P3): 3  — tipagem, EmptyState action, Activity
+  Bugs baixos  (P4): 2  — PRIORITY_COLORS, assigneeId null
+
+  Nenhuma alteração de código foi efetuada neste documento.
+  Este documento é puramente diagnóstico.
+================================================================================

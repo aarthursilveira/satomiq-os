@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { CheckSquare, Circle, Clock, AlertCircle, Plus, Filter } from "lucide-react";
-import { useTasks } from "@/hooks/useTasks.js";
+import { CheckSquare, Circle, Clock, AlertCircle, Plus, Filter, Loader2 } from "lucide-react";
+import { useTasks, useUpdateTask } from "@/hooks/useTasks.js";
 import { Button } from "@/components/ui/Button.js";
 import { Select } from "@/components/ui/Select.js";
 import { StatusBadge } from "@/components/ui/Badge.js";
@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/feedback/EmptyState.js";
 import { SkeletonRow } from "@/components/feedback/Skeleton.js";
 import { formatDate, PRIORITY_LABELS } from "@satomiq/shared";
 import { cn } from "@/lib/cn.js";
+import { CreateTaskModal } from "./components/CreateTaskModal.js";
 
 interface TaskData {
   id: string;
@@ -40,7 +41,7 @@ const PRIORITY_OPTIONS = [
   { value: "URGENT", label: "Urgente" },
 ];
 
-const PRIORITY_COLORS: Record<string, string> = {
+const PRIORITY_TEXT_CLASSES: Record<string, string> = {
   LOW: "text-text-tertiary",
   MEDIUM: "text-status-warning",
   HIGH: "text-status-error",
@@ -50,11 +51,30 @@ const PRIORITY_COLORS: Record<string, string> = {
 function TaskRow({ task }: { task: TaskData }): JSX.Element {
   const isDone = task.status === "DONE";
   const isOverdue = task.dueDate && !isDone && new Date(task.dueDate) < new Date();
+  const { mutate: updateTask, isPending } = useUpdateTask(task.id);
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateTask({ status: isDone ? "TODO" : "DONE" });
+  };
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-border-subtle last:border-0 hover:bg-bg-tertiary/30 transition-colors">
-      <div className={cn("flex-shrink-0 w-4 h-4", isDone ? "text-status-success" : "text-text-tertiary")}>
-        {isDone ? <CheckSquare className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
+    <div className="flex items-center gap-3 px-4 py-3 border-b border-border-subtle last:border-0 hover:bg-bg-tertiary/30 transition-colors group">
+      <div 
+        className={cn(
+          "flex-shrink-0 w-4 h-4 cursor-pointer transition-all hover:scale-110", 
+          isDone ? "text-status-success" : "text-text-tertiary",
+          isPending && "opacity-50 cursor-wait rotate-180"
+        )}
+        onClick={handleToggle}
+      >
+        {isPending ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : isDone ? (
+          <CheckSquare className="w-4 h-4" />
+        ) : (
+          <Circle className="w-4 h-4" />
+        )}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -66,7 +86,7 @@ function TaskRow({ task }: { task: TaskData }): JSX.Element {
         )}
       </div>
 
-      <span className={cn("text-xs flex-shrink-0 hidden sm:block", PRIORITY_COLORS[task.priority] ?? "text-text-tertiary")}>
+      <span className={cn("text-xs flex-shrink-0 hidden sm:block", PRIORITY_TEXT_CLASSES[task.priority] ?? "text-text-tertiary")}>
         {PRIORITY_LABELS[task.priority] ?? task.priority}
       </span>
 
@@ -89,8 +109,9 @@ function TaskRow({ task }: { task: TaskData }): JSX.Element {
 export default function TasksPage(): JSX.Element {
   const [status, setStatus] = useState("");
   const [priority, setPriority] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const { data, isLoading } = useTasks({
+  const { data, isLoading, isError, refetch } = useTasks({
     status: status || undefined,
     priority: priority || undefined,
     limit: 100,
@@ -111,7 +132,12 @@ export default function TasksPage(): JSX.Element {
           <h1 className="text-xl font-semibold text-text-primary">Tarefas</h1>
           <p className="text-sm text-text-tertiary mt-0.5">Todas as tarefas do sistema</p>
         </div>
-        <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}>
+        <Button 
+          variant="primary" 
+          size="sm" 
+          leftIcon={<Plus className="w-3.5 h-3.5" />}
+          onClick={() => setIsCreateModalOpen(true)}
+        >
           Nova Tarefa
         </Button>
       </motion.div>
@@ -153,11 +179,30 @@ export default function TasksPage(): JSX.Element {
         <div className="card overflow-hidden">
           {Array.from({ length: 8 }, (_, i) => <SkeletonRow key={i} />)}
         </div>
+      ) : isError ? (
+        <EmptyState
+          icon={<AlertCircle className="w-8 h-8 text-status-error" />}
+          title="Erro ao carregar tarefas"
+          description="Não foi possível carregar as tarefas no momento."
+          action={<Button variant="secondary" size="sm" onClick={() => refetch()}>Tentar novamente</Button>}
+        />
       ) : tasks.length === 0 ? (
         <EmptyState
           icon={<CheckSquare className="w-5 h-5" />}
           title="Nenhuma tarefa encontrada"
           description={status || priority ? "Tente remover os filtros." : "Crie sua primeira tarefa para começar."}
+          action={
+            !status && !priority && (
+              <Button 
+                variant="primary" 
+                size="sm" 
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                onClick={() => setIsCreateModalOpen(true)}
+              >
+                Nova Tarefa
+              </Button>
+            )
+          }
         />
       ) : (
         <div className="flex flex-col gap-4">
@@ -208,6 +253,11 @@ export default function TasksPage(): JSX.Element {
           )}
         </div>
       )}
+
+      <CreateTaskModal 
+        open={isCreateModalOpen} 
+        onClose={() => setIsCreateModalOpen(false)} 
+      />
     </div>
   );
 }

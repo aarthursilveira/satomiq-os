@@ -16,7 +16,9 @@ export interface CreateTaskInput {
   assigneeId?: string;
 }
 
-export interface UpdateTaskInput extends Partial<Omit<CreateTaskInput, "projectId" | "clientId">> {}
+export interface UpdateTaskInput extends Partial<Omit<CreateTaskInput, "projectId" | "clientId" | "assigneeId">> {
+  assigneeId?: string | null;
+}
 
 export interface ListTasksParams {
   clientId?: string;
@@ -98,6 +100,16 @@ export async function createTask(input: CreateTaskInput, creatorId: string) {
       project: { select: { id: true, name: true } },
     },
   });
+
+  if (task.clientId) {
+    await activitiesService.createActivity({
+      type: "TASK_COMPLETED",
+      title: "Tarefa criada",
+      description: task.title,
+      clientId: task.clientId,
+      userId: creatorId,
+    });
+  }
 
   return task;
 }
