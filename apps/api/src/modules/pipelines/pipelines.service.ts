@@ -52,12 +52,16 @@ export async function getPipelineById(id: string) {
 
 export async function createPipeline(data: {
   name: string;
+  description?: string;
+  color?: string;
   isDefault?: boolean;
   stages?: Array<{ name: string; color: string; order: number }>;
 }) {
   return prisma.pipeline.create({
     data: {
       name: data.name,
+      description: data.description,
+      color: data.color ?? "#2563EB",
       isDefault: data.isDefault ?? false,
       stages: data.stages
         ? { create: data.stages }
@@ -67,6 +71,32 @@ export async function createPipeline(data: {
       stages: { orderBy: { order: "asc" } },
     },
   });
+}
+
+export async function updatePipeline(
+  id: string,
+  data: { name?: string; description?: string; color?: string; isDefault?: boolean },
+) {
+  const pipeline = await prisma.pipeline.findUnique({ where: { id } });
+  if (!pipeline) throw AppError.notFound("Pipeline não encontrado");
+
+  return prisma.pipeline.update({
+    where: { id },
+    data,
+    include: {
+      stages: {
+        orderBy: { order: "asc" },
+        include: { _count: { select: { entries: true } } },
+      },
+    },
+  });
+}
+
+export async function deletePipeline(id: string) {
+  const pipeline = await prisma.pipeline.findUnique({ where: { id } });
+  if (!pipeline) throw AppError.notFound("Pipeline não encontrado");
+
+  await prisma.pipeline.delete({ where: { id } });
 }
 
 export async function addStage(pipelineId: string, data: {
@@ -90,6 +120,26 @@ export async function addStage(pipelineId: string, data: {
       pipelineId,
     },
   });
+}
+
+export async function updateStage(
+  stageId: string,
+  data: { name?: string; color?: string; order?: number },
+) {
+  const stage = await prisma.pipelineStage.findUnique({ where: { id: stageId } });
+  if (!stage) throw AppError.notFound("Stage não encontrada");
+
+  return prisma.pipelineStage.update({
+    where: { id: stageId },
+    data,
+  });
+}
+
+export async function deleteStage(stageId: string) {
+  const stage = await prisma.pipelineStage.findUnique({ where: { id: stageId } });
+  if (!stage) throw AppError.notFound("Stage não encontrada");
+
+  await prisma.pipelineStage.delete({ where: { id: stageId } });
 }
 
 export async function getPipelineEntries(pipelineId: string) {

@@ -25,7 +25,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "Dashboard", to: "/dashboard" },
   { icon: <Users className="w-4 h-4" />, label: "CRM — Clientes", to: "/crm" },
-  { icon: <GitBranch className="w-4 h-4" />, label: "Pipeline", to: "/crm/pipeline" },
+  { icon: <GitBranch className="w-4 h-4" />, label: "Pipelines", to: "/pipelines" },
   { icon: <CheckSquare className="w-4 h-4" />, label: "Tarefas", to: "/tasks" },
 ];
 

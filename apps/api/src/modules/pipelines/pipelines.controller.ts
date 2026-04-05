@@ -57,6 +57,100 @@ export async function create(
   }
 }
 
+export async function update(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      sendError(res, 400, errors.array()[0]?.msg ?? "Validation error");
+      return;
+    }
+
+    const { id } = req.params as { id: string };
+    const pipeline = await pipelinesService.updatePipeline(
+      id,
+      req.body as { name?: string; description?: string; color?: string; isDefault?: boolean },
+    );
+
+    sendSuccess(res, 200, pipeline);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function remove(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params as { id: string };
+    await pipelinesService.deletePipeline(id);
+    sendSuccess(res, 200, { message: "Pipeline removido com sucesso" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createStage(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      sendError(res, 400, errors.array()[0]?.msg ?? "Validation error");
+      return;
+    }
+
+    const { id } = req.params as { id: string };
+    const stage = await pipelinesService.addStage(
+      id,
+      req.body as { name: string; color: string; order?: number },
+    );
+
+    sendSuccess(res, 201, stage);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateStage(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { stageId } = req.params as { stageId: string };
+    const stage = await pipelinesService.updateStage(
+      stageId,
+      req.body as { name?: string; color?: string; order?: number },
+    );
+
+    sendSuccess(res, 200, stage);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteStage(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { stageId } = req.params as { stageId: string };
+    await pipelinesService.deleteStage(stageId);
+    sendSuccess(res, 200, { message: "Stage removida com sucesso" });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getEntries(
   req: AuthRequest,
   res: Response,

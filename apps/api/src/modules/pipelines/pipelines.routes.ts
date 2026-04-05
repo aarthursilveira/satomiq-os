@@ -21,10 +21,25 @@ const createEntryValidator = [
   body("value").optional().isFloat({ min: 0 }),
 ];
 
+const createStageValidator = [
+  body("name").trim().notEmpty().withMessage("Nome da stage é obrigatório"),
+  body("color").trim().notEmpty().withMessage("Cor da stage é obrigatória"),
+];
+
+// Pipeline CRUD
 router.get("/", pipelinesController.list);
 router.post("/", createPipelineValidator, pipelinesController.create);
 router.get("/:id", pipelinesController.getById);
+router.patch("/:id", pipelinesController.update);
+router.delete("/:id", pipelinesController.remove);
+
+// Stages
 router.get("/:id/entries", pipelinesController.getEntries);
+router.post("/:id/stages", createStageValidator, pipelinesController.createStage);
+router.patch("/stages/:stageId", pipelinesController.updateStage);
+router.delete("/stages/:stageId", pipelinesController.deleteStage);
+
+// Entries
 router.post("/entries", createEntryValidator, pipelinesController.createEntry);
 router.patch("/entries/:entryId/move", moveEntryValidator, pipelinesController.moveEntry);
 router.delete("/entries/:entryId", pipelinesController.deleteEntry);

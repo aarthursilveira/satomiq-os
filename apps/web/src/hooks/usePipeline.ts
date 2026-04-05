@@ -10,12 +10,99 @@ export function usePipelines() {
   });
 }
 
+export function usePipelineById(pipelineId: string) {
+  return useQuery({
+    queryKey: ["pipelines", pipelineId],
+    queryFn: () => pipelinesService.fetchPipelineById(pipelineId),
+    enabled: Boolean(pipelineId),
+    staleTime: 30_000,
+  });
+}
+
 export function usePipelineEntries(pipelineId: string) {
   return useQuery({
     queryKey: ["pipelines", pipelineId, "entries"],
     queryFn: () => pipelinesService.fetchPipelineEntries(pipelineId),
     enabled: Boolean(pipelineId),
     staleTime: 30_000,
+  });
+}
+
+export function useCreatePipeline() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { name: string; description?: string; color?: string }) =>
+      pipelinesService.createPipeline(body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["pipelines"] });
+      toast.success("Pipeline criado com sucesso!");
+    },
+    onError: () => toast.error("Erro ao criar pipeline."),
+  });
+}
+
+export function useUpdatePipeline() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; name?: string; description?: string; color?: string }) =>
+      pipelinesService.updatePipeline(id, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["pipelines"] });
+      toast.success("Pipeline atualizado!");
+    },
+    onError: () => toast.error("Erro ao atualizar pipeline."),
+  });
+}
+
+export function useDeletePipeline() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => pipelinesService.deletePipeline(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["pipelines"] });
+      toast.success("Pipeline removido.");
+    },
+    onError: () => toast.error("Erro ao remover pipeline."),
+  });
+}
+
+export function useCreateStage(pipelineId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { name: string; color: string; order?: number }) =>
+      pipelinesService.createStage(pipelineId, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["pipelines", pipelineId] });
+      void qc.invalidateQueries({ queryKey: ["pipelines", pipelineId, "entries"] });
+      toast.success("Coluna adicionada!");
+    },
+    onError: () => toast.error("Erro ao criar coluna."),
+  });
+}
+
+export function useUpdateStage(pipelineId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ stageId, ...body }: { stageId: string; name?: string; color?: string; order?: number }) =>
+      pipelinesService.updateStage(stageId, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["pipelines", pipelineId] });
+      void qc.invalidateQueries({ queryKey: ["pipelines", pipelineId, "entries"] });
+    },
+    onError: () => toast.error("Erro ao atualizar coluna."),
+  });
+}
+
+export function useDeleteStage(pipelineId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (stageId: string) => pipelinesService.deleteStage(stageId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["pipelines", pipelineId] });
+      void qc.invalidateQueries({ queryKey: ["pipelines", pipelineId, "entries"] });
+      toast.success("Coluna removida.");
+    },
+    onError: () => toast.error("Erro ao remover coluna."),
   });
 }
 

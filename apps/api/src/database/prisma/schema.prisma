@@ -262,9 +262,11 @@ enum ActivityType {
 
 // === PIPELINE / FUNIL ===
 model Pipeline {
-  id        String   @id @default(cuid())
-  name      String
-  isDefault Boolean  @default(false)
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String   @default("#2563EB")
+  isDefault   Boolean  @default(false)
 
   stages PipelineStage[]
 
