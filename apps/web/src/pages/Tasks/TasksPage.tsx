@@ -160,7 +160,11 @@ export default function TasksPage(): JSX.Element {
       >
         <div>
           <h1 className="text-xl font-semibold text-text-primary">Tarefas</h1>
-          <p className="text-sm text-text-tertiary mt-0.5">Todas as tarefas do sistema</p>
+          <p className="text-sm text-text-tertiary mt-0.5">
+            {data?.meta?.total != null 
+              ? `${data.meta.total} tarefas encontradas` 
+              : "Todas as tarefas do sistema"}
+          </p>
         </div>
         <Button 
           variant="primary" 

@@ -1,5 +1,5 @@
 import api from "@/services/api.js";
-import type { ApiResponse } from "@satomiq/shared";
+import type { ApiResponse, Task } from "@satomiq/shared";
 
 export interface TaskFilters {
   page?: number;
@@ -31,7 +31,7 @@ export async function fetchTasks(filters: TaskFilters = {}) {
   Object.entries(filters).forEach(([key, val]) => {
     if (val !== undefined && val !== "") params.set(key, String(val));
   });
-  const { data } = await api.get<ApiResponse<unknown[]>>(`/tasks?${params}`);
+  const { data } = await api.get<ApiResponse<Task[]>>(`/tasks?${params}`);
   return data;
 }
 
