@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { CheckSquare, Circle, Clock, AlertCircle, Plus, Filter, Loader2 } from "lucide-react";
-import { useTasks, useUpdateTask } from "@/hooks/useTasks.js";
+import { CheckSquare, Circle, Clock, AlertCircle, Plus, Filter, Loader2, Trash2 } from "lucide-react";
+import { useTasks, useUpdateTask, useDeleteTask } from "@/hooks/useTasks.js";
 import { Button } from "@/components/ui/Button.js";
 import { Select } from "@/components/ui/Select.js";
 import { StatusBadge } from "@/components/ui/Badge.js";
@@ -11,6 +11,7 @@ import { SkeletonRow } from "@/components/feedback/Skeleton.js";
 import { formatDate, PRIORITY_LABELS } from "@satomiq/shared";
 import { cn } from "@/lib/cn.js";
 import { CreateTaskModal } from "./components/CreateTaskModal.js";
+import { EditTaskModal } from "./components/EditTaskModal.js";
 
 interface TaskData {
   id: string;
@@ -48,7 +49,15 @@ const PRIORITY_TEXT_CLASSES: Record<string, string> = {
   URGENT: "text-status-error",
 };
 
-function TaskRow({ task }: { task: TaskData }): JSX.Element {
+function TaskRow({ 
+  task, 
+  onEdit, 
+  onDelete 
+}: { 
+  task: TaskData; 
+  onEdit: () => void; 
+  onDelete: () => void; 
+}): JSX.Element {
   const isDone = task.status === "DONE";
   const isOverdue = task.dueDate && !isDone && new Date(task.dueDate) < new Date();
   const { mutate: updateTask, isPending } = useUpdateTask(task.id);
@@ -58,8 +67,16 @@ function TaskRow({ task }: { task: TaskData }): JSX.Element {
     updateTask({ status: isDone ? "TODO" : "DONE" });
   };
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete();
+  };
+
   return (
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-border-subtle last:border-0 hover:bg-bg-tertiary/30 transition-colors group">
+    <div 
+      onClick={onEdit}
+      className="flex items-center gap-3 px-4 py-3 border-b border-border-subtle last:border-0 hover:bg-bg-tertiary/30 transition-colors group cursor-pointer"
+    >
       <div 
         className={cn(
           "flex-shrink-0 w-4 h-4 cursor-pointer transition-all hover:scale-110", 
@@ -102,6 +119,14 @@ function TaskRow({ task }: { task: TaskData }): JSX.Element {
       {task.assignee && (
         <Avatar name={task.assignee.name} src={task.assignee.avatarUrl} size="xs" className="flex-shrink-0" />
       )}
+
+      <button
+        onClick={handleDelete}
+        className="text-text-tertiary hover:text-status-error opacity-0 group-hover:opacity-100 transition-all p-1"
+        title="Excluir tarefa"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
     </div>
   );
 }
@@ -110,6 +135,9 @@ export default function TasksPage(): JSX.Element {
   const [status, setStatus] = useState("");
   const [priority, setPriority] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskData | null>(null);
+
+  const deleteTask = useDeleteTask();
 
   const { data, isLoading, isError, refetch } = useTasks({
     status: status || undefined,
@@ -223,7 +251,15 @@ export default function TasksPage(): JSX.Element {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.03 }}
                 >
-                  <TaskRow task={task} />
+                  <TaskRow 
+                    task={task} 
+                    onEdit={() => setEditingTask(task)}
+                    onDelete={() => {
+                      if (window.confirm("Deseja realmente excluir esta tarefa?")) {
+                        deleteTask.mutate(task.id);
+                      }
+                    }}
+                  />
                 </motion.div>
               ))}
             </motion.div>
@@ -246,7 +282,15 @@ export default function TasksPage(): JSX.Element {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.03 }}
                 >
-                  <TaskRow task={task} />
+                  <TaskRow 
+                    task={task} 
+                    onEdit={() => setEditingTask(task)}
+                    onDelete={() => {
+                      if (window.confirm("Deseja realmente excluir esta tarefa?")) {
+                        deleteTask.mutate(task.id);
+                      }
+                    }}
+                  />
                 </motion.div>
               ))}
             </motion.div>
@@ -257,6 +301,12 @@ export default function TasksPage(): JSX.Element {
       <CreateTaskModal 
         open={isCreateModalOpen} 
         onClose={() => setIsCreateModalOpen(false)} 
+      />
+
+      <EditTaskModal 
+        task={editingTask}
+        open={!!editingTask}
+        onClose={() => setEditingTask(null)}
       />
     </div>
   );
