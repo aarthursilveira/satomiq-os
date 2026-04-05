@@ -134,6 +134,7 @@ function TaskRow({
 export default function TasksPage(): JSX.Element {
   const [status, setStatus] = useState("");
   const [priority, setPriority] = useState("");
+  const [page, setPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskData | null>(null);
 
@@ -142,7 +143,8 @@ export default function TasksPage(): JSX.Element {
   const { data, isLoading, isError, refetch } = useTasks({
     status: status || undefined,
     priority: priority || undefined,
-    limit: 100,
+    page,
+    limit: 20,
   });
 
   const tasks = (data?.data as TaskData[] | undefined) ?? [];
@@ -181,20 +183,20 @@ export default function TasksPage(): JSX.Element {
         <Select
           options={STATUS_OPTIONS}
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onChange={(e) => { setStatus(e.target.value); setPage(1); }}
           className="w-full sm:w-44"
           placeholder=""
         />
         <Select
           options={PRIORITY_OPTIONS}
           value={priority}
-          onChange={(e) => setPriority(e.target.value)}
+          onChange={(e) => { setPriority(e.target.value); setPage(1); }}
           className="w-full sm:w-44"
           placeholder=""
         />
         {(status || priority) && (
           <button
-            onClick={() => { setStatus(""); setPriority(""); }}
+            onClick={() => { setStatus(""); setPriority(""); setPage(1); }}
             className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
           >
             Limpar filtros
@@ -295,6 +297,37 @@ export default function TasksPage(): JSX.Element {
               ))}
             </motion.div>
           )}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {data?.meta && data.meta.totalPages != null && data.meta.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-8">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => {
+              setPage(page - 1);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            Anterior
+          </Button>
+          <span className="text-sm text-text-tertiary px-2">
+             Página {page} de {data.meta.totalPages}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={page >= (data.meta.totalPages ?? 1)}
+            onClick={() => {
+              setPage(page + 1);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            Próxima
+          </Button>
         </div>
       )}
 
