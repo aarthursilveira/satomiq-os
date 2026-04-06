@@ -292,12 +292,14 @@ model PipelineStage {
 
 model PipelineEntry {
   id       String   @id @default(cuid())
+  title    String?
   value    Decimal? @db.Decimal(10, 2)
   notes    String?
   enteredAt DateTime @default(now())
+  mediaUrls String[]
 
-  clientId String
-  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   stageId String
   stage   PipelineStage @relation(fields: [stageId], references: [id], onDelete: Cascade)

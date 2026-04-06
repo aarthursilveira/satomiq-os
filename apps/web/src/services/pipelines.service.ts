@@ -61,7 +61,7 @@ export async function moveEntry(entryId: string, stageId: string) {
   return data.data;
 }
 
-export async function createEntry(body: { clientId: string; stageId: string; value?: number; notes?: string }) {
+export async function createEntry(body: { clientId?: string; title?: string; stageId: string; value?: number; notes?: string; mediaUrls?: string[] }) {
   const { data } = await api.post<ApiResponse<unknown>>("/pipelines/entries", body);
   return data.data;
 }

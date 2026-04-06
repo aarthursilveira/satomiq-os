@@ -1,0 +1,134 @@
+================================================================================
+  AUDITORIA ESPECÍFICA — MENU "PIPELINES"
+  Data: 2026-04-06
+  Auditor: Antigravity AI
+  Escopo: Módulo de Pipelines (Frontend e Backend) — Criação de Cards e Uploads
+================================================================================
+
+NOTA: Você relatou que a estrutura de criação de pipeline, drag-and-drop de colunas
+e espaços (stages) funciona 100%. No entanto, está bloqueado na impossibilidade
+de criar conteúdo (cards/entradas) via UI, além de desejar a expansão para funis
+de conteúdo/postagens com upload de mídias para hospedagem na VPS.
+
+Abaixo destrincho o diagnóstico de todos os bloqueios e o desenho arquitetural 
+da solução.
+
+================================================================================
+  ESTADO ATUAL DO MÓDULO (leitura do código-fonte)
+================================================================================
+
+  Frontend:
+    ✅ apps/web/src/pages/Pipelines/PipelineProfilePage.tsx
+       — Renderiza colunas, mas não possui interface para submeter novos cards.
+    
+  Backend:
+    ✅ apps/api/src/modules/pipelines/pipelines.service.ts
+       — Possui `createEntry(...)` funcional, mas só aceita `clientId` obrigatório.
+
+  Banco (Prisma):
+    ⚠️ `PipelineEntry` (os cards) tem relacionamento obrigatório APENAS com `Client`. 
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BUG #1 — CRÍTICO: Falta de Componente/UI para "Adicionar Entry" nas colunas ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE:    ████████████ CRÍTICA (Bloqueador de Feature)
+ARQUIVO:      PipelineProfilePage.tsx
+TIPO:         UI Omitida
+
+CENÁRIO: A base de dados e a API suportam adicionar cards em colunas (`createEntry`),
+mas no componente `<StageColumn />` o render possui apenas as entradas existentes 
+(que foram arrastadas e mapeadas) e placeholders para "Arraste aqui". 
+Nenhum botão de "+ Adicionar Cliente/Conteúdo" foi embutido.
+
+CORREÇÃO NECESSÁRIA:
+  1. Componente `<StageColumn />`: Inserir um botão de "+ Adicionar" no footer
+     (rodapé) de cada coluna gerada, que ao clicar, registra `setTargetStageId(stage.id)`.
+  2. Implementar um modal (`CreatePipelineEntryModal.tsx`): contendo campos
+     necessários (Cliente, Valor, Notas).
+  3. Vincular `useMutation` para a chamada POST, atualizar a view (invalidação
+     de queries do react-query).
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  LIMITAÇÃO #2 — ALTA: Engessamento Arquitetural (Preso 100% ao CRM)          ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE:    ████████ ALTA (Impede funis de Postagens/Projetos)
+ARQUIVO:      apps/api/src/database/prisma/schema.prisma
+TIPO:         Design de Dados
+
+CENÁRIO: O `schema.prisma` estabeleceu na model `PipelineEntry`:
+  clientId String
+  client   Client @relation(...)
+
+Como é "String" e não "String?", todo card obrigatoriamente depende da seleção
+prévia de um cliente de vendas. Se você quiser criar um Pipeline chamado 
+"Calendário Criativo de Março" e as etapas forem "Ideia", "Roteiro", "Vídeo", 
+o banco não permite um card que seja apenas uma "Postagem", ele exige que
+o card seja "Um cliente no Pipeline x". 
+
+CORREÇÃO NECESSÁRIA: Polimorfismo ou Opcionalidade
+  1. Atualizar schema.prisma, tornando o cliente opcional:
+     - `clientId String?`
+     - Adicionar `title String?` (Para o card ter nome próprio caso não seja de um cliente).
+  2. Ou vincular novas entidades (ex: `contentItemId String?`) para transformar
+     aquele entry num card de produção audiovisual para o Instagram.
+  3. Realizar migração na DB (`npx prisma migrate dev`).
+
+================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  FERRAMENTA #3 — MÉDIA/ALTA: Suporte a Uploads Hosted On-Premises (VPS)      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GRAVIDADE:    ████ MÉDIA/ALTA (Expansão Vital para Content Pipelines)
+ARQUIVO:      Backend App / rotas / Prisma
+TIPO:         Nova Feature Inexistente
+
+CENÁRIO: Não há um ambiente de "File System" configurado no Express neste 
+exato instante. Para armazenar imagens ou vídeos, abrir para o frontend e servi-los 
+através da VPS (on-premises storage).
+
+CORREÇÃO NECESSÁRIA:
+  1. Adicionar o pacote `multer` no Express: Configurar armazenamento em disco 
+     usando volumes do Docker (ex: pasta `/app/data/uploads` fora do build).
+  2. Criar model: Adicionamos um array de anexos no prisma: `mediaUrls String[]`
+     ao `PipelineEntry` ou a uma entidade genérica. No banco fica salvo como `["/uploads/xyz123.mp4"]`.
+  3. Ao subir os artefatos, o frontend utiliza `<input type="file" multiple />` 
+     com multipart/form-data.
+  4. Implementar serviço estático (`app.use('/uploads', express.static(...))`) 
+     para renderizar essas pastas de mídia para o app cliente.
+
+================================================================================
+  PLANO DE EXECUÇÃO SUGERIDO (COMO RESOLVEREMOS ISSO NA PRÓXIMA ETAPA)
+================================================================================
+
+FASE 1: O "Desengessador" (Banco de Dados e API)
+  - Mudaremos o `PipelineEntry` no Prisma para permitir que ele aceite mídias (`mediaUrls String[]`).
+  - Colocaremos um campo `title String?` que servirá de "Nome do Card".
+  - Tornaremos o `clientId` opcional para que existam cards sem cliente anexado.
+  - Atualizamos os Controllers e o Service (`pipelines.service.ts`) para lidar 
+    com o Title e o Cliente omitido.
+
+FASE 2: O Motor de Anexos
+  - Criação da pasta de uploads, middleware do multer `apps/api/src/middlewares/upload.ts`.
+  - Rotas e controllers de suporte `POST /api/upload` que responde com as URIs 
+    das imagens de maneira direta à API.
+
+FASE 3: A Nova Interface (O Botão e a Gaveta)
+  - Modificar `/PipelineProfilePage.tsx`. No footer das colunas, botamos o botão "Adicionar".
+  - Criar um `<PipelineEntryModal />` robusto:
+    * Se for um pipeline CRM, mostra via Select os Clientes.
+    * Se for um pipeline genérico (Postagens), permite digitar um Título, Subir um 
+      video drag-and-drop e mandar salvar via query.
+    * Quando a pessoa clicar em "Expandir Card", poderemos ver a foto do arquivo ou assistir
+      ao video diretamente pela interface.
+
+CONCLUSÃO DA AUDITORIA:
+O Menu Pipelines foi desenhado firmemente ao redor de CRM B2B tradicional de 
+venda. Para a transição "Satomiq: Hub Completo (Vendas + Marketing/Conteúdo)", as
+pequenas flexibilizações acima são suficientes. O motor de arrastar/soltar
+será mantido, apenas incrementado.
+
+Quando quiser iniciar, basta pedir que eu inicie a "Fase 1"!

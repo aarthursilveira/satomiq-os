@@ -121,11 +121,11 @@ export function useMoveEntry(pipelineId: string) {
 export function useCreateEntry(pipelineId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { clientId: string; stageId: string; value?: number; notes?: string }) =>
+    mutationFn: (body: { clientId?: string; title?: string; stageId: string; value?: number; notes?: string; mediaUrls?: string[] }) =>
       pipelinesService.createEntry(body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["pipelines", pipelineId, "entries"] });
-      toast.success("Cliente adicionado ao pipeline!");
+      toast.success("Card adicionado ao pipeline!");
     },
     onError: () => toast.error("Erro ao adicionar ao pipeline."),
   });
@@ -139,5 +139,22 @@ export function useDeleteEntry(pipelineId: string) {
       void qc.invalidateQueries({ queryKey: ["pipelines", pipelineId, "entries"] });
       toast.success("Removido do pipeline.");
     },
+  });
+}
+
+export function useUploadFiles() {
+  return useMutation({
+    mutationFn: async (files: File[]) => {
+      if (files.length === 0) return [];
+      const formData = new FormData();
+      files.forEach(f => formData.append("files", f));
+      
+      const { api } = await import("@/services/api.js");
+      const { data } = await api.post<{ success: boolean; data: { urls: string[] } }>("/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      return data.data.urls;
+    },
+    onError: () => toast.error("Erro ao fazer upload da mídia."),
   });
 }

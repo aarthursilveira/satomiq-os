@@ -213,23 +213,29 @@ export async function moveEntry(entryId: string, targetStageId: string) {
 }
 
 export async function createEntry(data: {
-  clientId: string;
+  clientId?: string;
+  title?: string;
   stageId: string;
   value?: number;
   notes?: string;
+  mediaUrls?: string[];
 }) {
   const stage = await prisma.pipelineStage.findUnique({ where: { id: data.stageId } });
   if (!stage) throw AppError.notFound("Stage não encontrada");
 
-  const client = await prisma.client.findUnique({ where: { id: data.clientId } });
-  if (!client) throw AppError.notFound("Cliente não encontrado");
+  if (data.clientId) {
+    const client = await prisma.client.findUnique({ where: { id: data.clientId } });
+    if (!client) throw AppError.notFound("Cliente não encontrado");
+  }
 
   return prisma.pipelineEntry.create({
     data: {
       clientId: data.clientId,
+      title: data.title,
       stageId: data.stageId,
       value: data.value ? new Prisma.Decimal(data.value) : null,
       notes: data.notes,
+      mediaUrls: data.mediaUrls ?? [],
     },
     include: {
       client: {

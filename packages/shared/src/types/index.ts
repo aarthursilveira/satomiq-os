@@ -193,10 +193,12 @@ export interface Pipeline {
 
 export interface PipelineEntry {
   id: string;
+  title: string | null;
   value: number | null;
   notes: string | null;
   enteredAt: Date;
-  clientId: string;
+  mediaUrls: string[];
+  clientId: string | null;
   stageId: string;
 }
 

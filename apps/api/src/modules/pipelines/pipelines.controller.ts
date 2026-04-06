@@ -201,10 +201,12 @@ export async function createEntry(
 
     const entry = await pipelinesService.createEntry(
       req.body as {
-        clientId: string;
+        clientId?: string;
+        title?: string;
         stageId: string;
         value?: number;
         notes?: string;
+        mediaUrls?: string[];
       },
     );
 

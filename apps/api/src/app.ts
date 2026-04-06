@@ -18,6 +18,8 @@ import pipelinesRoutes from "@/modules/pipelines/pipelines.routes.js";
 import contactsRoutes from "@/modules/contacts/contacts.routes.js";
 import contentRoutes from "@/modules/content/content.routes.js";
 import dashboardRoutes from "@/modules/dashboard/dashboard.routes.js";
+import uploadRoutes from "@/modules/upload/upload.routes.js";
+import path from "path";
 
 export function createApp(): Express {
   const app = express();
@@ -71,6 +73,10 @@ export function createApp(): Express {
   app.use("/api/pipelines", pipelinesRoutes);
   app.use("/api/content", contentRoutes);
   app.use("/api/dashboard", dashboardRoutes);
+  app.use("/api/upload", uploadRoutes);
+
+  // === STATIC ASSETS ===
+  app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
   // === 404 HANDLER ===
   app.use((_req: Request, res: Response) => {

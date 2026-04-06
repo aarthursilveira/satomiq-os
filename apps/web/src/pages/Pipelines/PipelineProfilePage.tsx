@@ -29,9 +29,11 @@ import { cn } from "@/lib/cn.js";
 
 interface StageEntry {
   id: string;
+  title: string | null;
   value: number | null;
   notes: string | null;
   enteredAt: string;
+  mediaUrls: string[];
   client: {
     id: string;
     name: string;
@@ -40,7 +42,7 @@ interface StageEntry {
     status: string;
     type: string;
     contractValue: number | null;
-  };
+  } | null;
 }
 
 interface PipelineStage {
@@ -82,7 +84,9 @@ function PipelineCard({
   index: number;
   onNavigate: () => void;
 }): JSX.Element {
-  const displayValue = entry.value ?? entry.client.contractValue;
+  const displayValue = entry.value ?? entry.client?.contractValue;
+  const displayName = entry.title || entry.client?.name || "Sem título";
+  const displayAvatar = entry.client?.avatarUrl;
 
   return (
     <Draggable draggableId={entry.id} index={index}>
@@ -98,31 +102,55 @@ function PipelineCard({
           )}
         >
           <div className="flex items-start gap-2 mb-2">
-            <Avatar name={entry.client.name} src={entry.client.avatarUrl} size="sm" className="flex-shrink-0 mt-0.5" />
+            {entry.client ? (
+               <Avatar name={displayName} src={displayAvatar} size="sm" className="flex-shrink-0 mt-0.5" />
+            ) : (
+               <div className="w-8 h-8 rounded-full bg-bg-tertiary flex items-center justify-center flex-shrink-0 mt-0.5 text-text-tertiary text-xs font-semibold">
+                 {displayName.charAt(0).toUpperCase()}
+               </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-text-primary truncate leading-snug">
-                {entry.client.name}
+                {displayName}
               </p>
-              <StatusBadge status={entry.client.status} className="mt-1" />
+              {entry.client && <StatusBadge status={entry.client.status} className="mt-1" />}
             </div>
             <button
-              onClick={(e) => { e.stopPropagation(); onNavigate(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (entry.client) {
+                  onNavigate();
+                }
+              }}
               className="opacity-0 group-hover:opacity-100 p-1 text-text-tertiary hover:text-text-primary transition-all flex-shrink-0"
+              title={entry.client ? "Ver cliente" : "Detalhes"}
             >
               <ExternalLink className="w-3 h-3" />
             </button>
           </div>
 
-          {entry.notes && (
-            <p className="text-xs text-text-tertiary mb-2 line-clamp-2">{entry.notes}</p>
-          )}
-
-          {displayValue != null && (
-            <div className="flex items-center gap-1 text-xs font-semibold text-status-success">
-              <DollarSign className="w-3 h-3" />
-              {formatCurrency(Number(displayValue))}
+          <div className="flex flex-col gap-1.5 mt-2">
+            {entry.notes && (
+              <p className="text-xs text-text-tertiary line-clamp-2 leading-relaxed">{entry.notes}</p>
+            )}
+            
+            <div className="flex items-center justify-between mt-1">
+               <div className="flex gap-2">
+                 {entry.mediaUrls && entry.mediaUrls.length > 0 && (
+                   <span className="text-[10px] text-text-tertiary font-medium bg-bg-tertiary px-1.5 py-0.5 rounded flex items-center gap-1">
+                     📎 {entry.mediaUrls.length}
+                   </span>
+                 )}
+               </div>
+              
+              {displayValue != null && (
+                <div className="flex items-center gap-1 text-[11px] font-semibold text-status-success">
+                  <DollarSign className="w-3 h-3" />
+                  {formatCurrency(Number(displayValue))}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
     </Draggable>
@@ -133,16 +161,18 @@ function StageColumn({
   stage,
   pipelineId,
   onNavigate,
+  onAddEntry,
 }: {
   stage: PipelineStage;
   pipelineId: string;
   onNavigate: (clientId: string) => void;
+  onAddEntry: (stageId: string) => void;
 }): JSX.Element {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const deleteStage = useDeleteStage(pipelineId);
 
   const totalValue = stage.entries.reduce(
-    (sum, e) => sum + Number(e.value ?? e.client.contractValue ?? 0),
+    (sum, e) => sum + Number(e.value ?? e.client?.contractValue ?? 0),
     0,
   );
 
@@ -192,7 +222,7 @@ function StageColumn({
                 key={entry.id}
                 entry={entry}
                 index={index}
-                onNavigate={() => onNavigate(entry.client.id)}
+                onNavigate={() => entry.client && onNavigate(entry.client.id)}
               />
             ))}
             {provided.placeholder}
@@ -202,6 +232,14 @@ function StageColumn({
                 <p className="text-xs text-text-tertiary">Arraste aqui</p>
               </div>
             )}
+            
+            <button 
+              onClick={() => onAddEntry(stage.id)}
+              className="mt-1 w-full py-2 flex items-center justify-center gap-2 text-text-tertiary hover:text-text-primary hover:bg-bg-elevated border border-transparent hover:border-border-subtle rounded-lg transition-all text-xs font-medium"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Adicionar Card
+            </button>
           </div>
         )}
       </Droppable>
@@ -241,6 +279,8 @@ function StageColumn({
   );
 }
 
+import CreatePipelineEntryModal from "./CreatePipelineEntryModal.js";
+
 export default function PipelineProfilePage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -256,6 +296,9 @@ export default function PipelineProfilePage(): JSX.Element {
   const [stageName, setStageName] = useState("");
   const [stageColor, setStageColor] = useState(DEFAULT_STAGE_COLOR);
 
+  // Add entry modal state
+  const [entryStageId, setEntryStageId] = useState<string | null>(null);
+
   function onDragEnd(result: DropResult): void {
     if (!result.destination) return;
     if (result.source.droppableId === result.destination.droppableId) return;
@@ -269,7 +312,7 @@ export default function PipelineProfilePage(): JSX.Element {
   const totalValue = pipeline?.stages.reduce(
     (sum, stage) =>
       sum + stage.entries.reduce(
-        (s, e) => s + Number(e.value ?? e.client.contractValue ?? 0), 0,
+        (s, e) => s + Number(e.value ?? e.client?.contractValue ?? 0), 0,
       ),
     0,
   ) ?? 0;
@@ -400,6 +443,7 @@ export default function PipelineProfilePage(): JSX.Element {
                     stage={stage}
                     pipelineId={pipeline.id}
                     onNavigate={(clientId) => navigate(`/crm/${clientId}`)}
+                    onAddEntry={(stageId) => setEntryStageId(stageId)}
                   />
                 </motion.div>
               ))}
@@ -463,6 +507,16 @@ export default function PipelineProfilePage(): JSX.Element {
           </div>
         </form>
       </Modal>
+
+      {/* Create Pipeline Entry Modal for specific stage */}
+      {entryStageId && (
+        <CreatePipelineEntryModal
+          open={!!entryStageId}
+          onClose={() => setEntryStageId(null)}
+          pipelineId={pipeline?.id ?? ""}
+          stageId={entryStageId}
+        />
+      )}
     </div>
   );
 }
