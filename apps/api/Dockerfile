@@ -55,6 +55,9 @@ COPY --from=builder --chown=node:node /app/apps/api/dist ./dist
 # Copy schema to /app/apps/api/prisma (matches docker-compose.yml expectation)
 COPY --from=builder --chown=node:node /app/apps/api/src/database/prisma ./prisma
 
+# Create uploads directory with appropriate permissions
+RUN mkdir -p /app/apps/api/uploads && chown -R node:node /app/apps/api/uploads
+
 # Switch to non-root user
 USER node
 
